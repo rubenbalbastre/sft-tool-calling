@@ -268,3 +268,41 @@ print(rendered)
 ```
 
 Keep every conversation intact during training. For assistant-only loss, train on assistant tool calls and assistant responses while masking user messages and tool results. Verify the pilot end to end before producing the larger dataset.
+
+## Evaluate an existing model and prompt
+
+[`evaluation/evaluate_openai.py`](evaluation/evaluate_openai.py) runs an OpenAI model online against freshly generated hidden scenarios. It does not show the model the scenario object or generated target conversation. For every episode it:
+
+1. Sends the initial user request, prompt, and tool schemas to the model.
+2. Executes the model's function call through `SupplyChainEnvironment.step()`.
+3. Sends the resulting tool observation or simulated user selection back to the model.
+4. Continues until the environment succeeds, rejects an action, or reaches the step limit.
+5. Stores the action trace, rewards, failure reason, token usage, and latency.
+
+The project virtual environment contains the OpenAI SDK and `python-dotenv`. Put the API key in the repository's ignored `.env` file:
+
+```dotenv
+OPENAI_API_KEY=your-key
+```
+
+The evaluator calls `load_dotenv()` before creating the OpenAI client. Existing process environment variables take precedence over values in `.env`. Then try GPT-5.4 nano with reasoning effort `none`:
+
+```bash
+.venv/bin/python -m evaluation.evaluate_openai \
+  --model gpt-5.4-nano \
+  --reasoning-effort none \
+  --episodes 20 \
+  --output evaluation/gpt-5.4-nano.jsonl
+```
+
+Evaluation makes paid API calls. Start with a small number of episodes before increasing the sample size.
+
+To evaluate a different prompt without changing source code:
+
+```bash
+.venv/bin/python -m evaluation.evaluate_openai \
+  --prompt-file prompts/my_prompt.txt \
+  --episodes 50
+```
+
+The JSONL output contains one complete result per episode. A sibling `.summary.json` file reports overall success rate, average return, token totals, total latency, and results grouped by trajectory kind. Use the same seed and episode count when comparing prompts or models.

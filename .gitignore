@@ -3,3 +3,5 @@
 *.jsonl
 data/
 environment/*.csv
+
+*/__pycache__/*
