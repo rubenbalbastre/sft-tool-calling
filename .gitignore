@@ -2,4 +2,4 @@
 .env
 *.jsonl
 data/
-environment/
+environment/*.csv

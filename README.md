@@ -83,6 +83,14 @@ can_fulfill_material_request(
 
 This is the terminal task action. Its arguments must preserve the material, quantity, unit, and date from the original request and use the plant selected by the routing process.
 
+### `request_new_location`
+
+```python
+request_new_location()
+```
+
+This is the structured terminal action for a city with no matching records. Like structured clarification, it makes the intended behavior directly verifiable without judging free-form assistant wording.
+
 ## Valid trajectories
 
 The correct trajectory follows task invariants rather than a stored reference conversation.
@@ -128,7 +136,7 @@ This is a genuine multi-turn trajectory. The user's selection contains no repeat
 user request for an unknown city
 → check_location(city=<city>)
 → no records
-→ assistant asks for a more precise or different city
+→ request_new_location()
 ```
 
 The assistant must not invent a plant ID or call fulfillment.
@@ -153,7 +161,60 @@ The generator does not compare a rollout with exact assistant wording. It verifi
 
 These invariants allow multiple valid linguistic realizations and make the task suitable for RLVR: reward can be based on whether the actions and state transitions are correct, not whether the output matches a specific training example.
 
-The current code builds and validates complete conversations. A later online RLVR wrapper can expose the same logic through `reset()` and `step(action)` without changing these verification rules.
+The same rules are used both to build SFT conversations and to evaluate online RLVR episodes through `reset()` and `step(action)`.
+
+## RLVR environment API
+
+[`environment/rlvr.py`](environment/rlvr.py) provides that online abstraction as `SupplyChainEnvironment`. The scenario is hidden task state; only the initial user request and subsequent observations should be shown to the model.
+
+```python
+from environment import SupplyChainEnvironment
+
+env = SupplyChainEnvironment(scenario, user_request)
+observation = env.reset()
+
+observation, reward, done, info = env.step({
+    "name": "check_location",
+    "arguments": {"city": "Valencia"},
+})
+```
+
+Intermediate rewards are configurable when the environment is initialized:
+
+```python
+env = SupplyChainEnvironment(
+    scenario,
+    user_request,
+    reward_weights={
+        "lookup": 0.3,
+        "clarification": 0.4,
+    },
+    success_reward=1.0,
+    failure_reward=0.0,
+)
+```
+
+The default intermediate weights are `0.2` for a valid city lookup and `0.2` for valid clarification. Intermediate rewards are issued only once because the state machine advances after every accepted action. On successful completion, the terminal action receives the unallocated portion of `success_reward`. Therefore all successful paths have the same total return even though longer paths receive intermediate feedback:
+
+```text
+direct:     1.0
+unique:     0.2 lookup + 0.8 fulfillment = 1.0
+ambiguous:  0.2 lookup + 0.2 clarification + 0.6 fulfillment = 1.0
+no match:   0.2 lookup + 0.8 request-new-location = 1.0
+```
+
+Weights must be non-negative and their sum cannot exceed `success_reward`. If a later action fails, the final transition claws back previously issued intermediate rewards so the complete episode return equals `failure_reward`. This prevents a model from retaining lookup credit for an ultimately invalid trajectory. `failure_reward` can be negative when failed episodes should receive an additional penalty.
+
+`step()` also accepts an OpenAI-style function call whose `arguments` value is a JSON string. The environment tracks four expected-action states:
+
+```text
+expect_lookup
+expect_clarification
+expect_new_location_request
+expect_fulfillment
+```
+
+Correct intermediate transitions return their configured reward and the next observation. A complete valid trajectory receives the remaining success reward. A wrong tool, wrong arguments, invented plant, premature fulfillment, or invalid transition terminates with `failure_reward` and a reason in `info`.
 
 ## SFT data generation
 

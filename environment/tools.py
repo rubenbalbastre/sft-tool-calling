@@ -37,6 +37,11 @@ def ask_for_clarification(candidate_plant_ids):
     }
 
 
+def request_new_location():
+    """Request a different city after a location lookup returns no records."""
+    return {"status": "new_location_requested"}
+
+
 def can_fulfill_material_request(
     material_id, quantity, unit, required_date, plant_id
 ):

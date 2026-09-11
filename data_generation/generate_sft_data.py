@@ -6,7 +6,12 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 
-from environment.tools import MASTER_DATA, ask_for_clarification, check_location
+from environment.tools import (
+    MASTER_DATA,
+    ask_for_clarification,
+    check_location,
+    request_new_location,
+)
 
 
 LANGUAGES = ["English", "Spanish", "German", "French"]
@@ -42,14 +47,6 @@ REQUESTS = {
         "Le besoin ultérieur est couvert. À {target}, il manque {quantity} {unit} de {material} pour le {date}. Merci de vérifier ce manque.",
     ],
 }
-NOT_FOUND = {
-    "English": "I couldn't find a plant matching {location}. Please give a more precise or different location.",
-    "Spanish": "No encuentro una planta que coincida con {location}. Indica una ubicación más precisa o diferente.",
-    "German": "Ich finde kein Werk für {location}. Bitte nenne einen genaueren oder anderen Standort.",
-    "French": "Je ne trouve aucun site correspondant à {location}. Indiquez un lieu plus précis ou différent.",
-}
-
-
 def balanced_sample(count, weighted_values, rng):
     """Take an approximately proportional sample, including small pilot sets."""
     labels = []
@@ -156,7 +153,16 @@ def build_conversation(scenario):
         if not scenario["matches"]:
             messages.append({
                 "role": "assistant",
-                "content": NOT_FOUND[scenario["language"]].format(location=scenario["city"]),
+                "content": "",
+                "tool_calls": [call(
+                    "new_location_1", "request_new_location", {}
+                )],
+            })
+            messages.append({
+                "role": "tool",
+                "name": "request_new_location",
+                "tool_call_id": "new_location_1",
+                "content": json.dumps(request_new_location()),
             })
             return messages
 
@@ -219,6 +225,13 @@ def validate(scenario, messages):
         assert clarification_args == {"candidate_plant_ids": expected_candidates}
     else:
         assert not clarification_calls
+
+    new_location_calls = [
+        c for c in calls if c["function"]["name"] == "request_new_location"
+    ]
+    assert len(new_location_calls) == (1 if not direct and not scenario["matches"] else 0)
+    if new_location_calls:
+        assert json.loads(new_location_calls[0]["function"]["arguments"]) == {}
 
     fulfillment = [json.loads(c["function"]["arguments"]) for c in calls if c["function"]["name"] == "can_fulfill_material_request"]
     if not direct and not scenario["matches"]:
