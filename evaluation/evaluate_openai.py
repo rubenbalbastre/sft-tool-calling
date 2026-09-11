@@ -2,9 +2,15 @@
 
 import argparse
 import json
+import sys
 import time
 from collections import defaultdict
 from pathlib import Path
+
+# Direct execution adds evaluation/ to sys.path, not the repository root.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from data_generation.generate_sft_data import generate
 from environment import SupplyChainEnvironment
@@ -238,7 +244,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gpt-5.4-nano")
     parser.add_argument("--reasoning-effort", default="none")
-    parser.add_argument("--episodes", type=int, default=1)
+    parser.add_argument("--episodes", type=int, default=4)
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--max-steps", type=int, default=5)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
@@ -248,8 +254,8 @@ def main():
     from openai import OpenAI
     from dotenv import load_dotenv
 
-    load_dotenv()
-    prompt = args.prompt_file.read_text(encoding="utf-8") if args.prompt_file else args.prompt
+    load_dotenv(PROJECT_ROOT / ".env")
+    prompt = args.prompt
     rows = generate(args.episodes, "evaluation", args.seed)
     client = OpenAI()
     results = []
