@@ -69,6 +69,8 @@ def make_scenario(index, split, kind, difficulty, rng):
         "required_date": (date(2026, 10, 1) + timedelta(days=rng.randint(1, 365))).isoformat(),
         "city": None,
         "matches": [],
+        "replacement_city": None,
+        "replacement_matches": [],
         "explicit_plant_id": None,
         "selected_plant_id": None,
         "selected_plant_name": None,
@@ -85,6 +87,13 @@ def make_scenario(index, split, kind, difficulty, rng):
     elif kind == "missing":
         scenario["city"] = rng.choice(["Albor", "Monteluz", "Belle-Rive"])
         scenario["matches"] = check_location(scenario["city"])["matches"]
+        cities = sorted({plant["city"] for plant in MASTER_DATA})
+        scenario["replacement_city"] = rng.choice(cities)
+        replacement_matches = check_location(scenario["replacement_city"])["matches"]
+        selected = rng.choice(replacement_matches)
+        scenario["replacement_matches"] = replacement_matches
+        scenario["selected_plant_id"] = selected["plant_id"]
+        scenario["selected_plant_name"] = selected["name"]
     else:
         cities = sorted({plant["city"] for plant in MASTER_DATA})
         choices = [city for city in cities if len(check_location(city)["matches"]) == (1 if kind == "unique" else 2)]
@@ -164,10 +173,31 @@ def build_conversation(scenario):
                 "tool_call_id": "new_location_1",
                 "content": json.dumps(request_new_location()),
             })
-            return messages
+            messages.append({
+                "role": "user",
+                "content": scenario["replacement_city"],
+            })
+            messages.append({
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [call(
+                    "location_2", "check_location",
+                    {"city": scenario["replacement_city"]},
+                )],
+            })
+            messages.append({
+                "role": "tool",
+                "name": "check_location",
+                "tool_call_id": "location_2",
+                "content": json.dumps(
+                    {"matches": scenario["replacement_matches"]},
+                    ensure_ascii=False,
+                ),
+            })
 
-        if len(scenario["matches"]) > 1:
-            candidate_ids = [plant["plant_id"] for plant in scenario["matches"]]
+        final_matches = scenario["replacement_matches"] or scenario["matches"]
+        if len(final_matches) > 1:
+            candidate_ids = [plant["plant_id"] for plant in final_matches]
             messages.append({
                 "role": "assistant",
                 "content": "",
@@ -206,22 +236,31 @@ def validate(scenario, messages):
     calls = [c for message in messages for c in message.get("tool_calls", [])]
     names = [c["function"]["name"] for c in calls]
     direct = scenario["explicit_plant_id"] is not None
-    assert names.count("check_location") == (0 if direct else 1)
+    expected_lookups = 0 if direct else (2 if scenario["kind"] == "missing" else 1)
+    assert names.count("check_location") == expected_lookups
     if not direct:
-        lookup = next(c for c in calls if c["function"]["name"] == "check_location")
-        assert json.loads(lookup["function"]["arguments"]) == {"city": scenario["city"]}
+        lookups = [c for c in calls if c["function"]["name"] == "check_location"]
+        assert json.loads(lookups[0]["function"]["arguments"]) == {"city": scenario["city"]}
         assert scenario["matches"] == check_location(scenario["city"])["matches"]
         assert all(set(plant) == {"name", "plant_id", "city"} for plant in scenario["matches"])
+        if scenario["kind"] == "missing":
+            assert json.loads(lookups[1]["function"]["arguments"]) == {
+                "city": scenario["replacement_city"]
+            }
+            assert scenario["replacement_matches"] == check_location(
+                scenario["replacement_city"]
+            )["matches"]
 
+    final_matches = scenario["replacement_matches"] or scenario["matches"]
     clarification_calls = [
         c for c in calls if c["function"]["name"] == "ask_for_clarification"
     ]
-    if len(scenario["matches"]) > 1:
+    if len(final_matches) > 1:
         assert len(clarification_calls) == 1
         clarification_args = json.loads(
             clarification_calls[0]["function"]["arguments"]
         )
-        expected_candidates = [p["plant_id"] for p in scenario["matches"]]
+        expected_candidates = [p["plant_id"] for p in final_matches]
         assert clarification_args == {"candidate_plant_ids": expected_candidates}
     else:
         assert not clarification_calls
@@ -229,15 +268,11 @@ def validate(scenario, messages):
     new_location_calls = [
         c for c in calls if c["function"]["name"] == "request_new_location"
     ]
-    assert len(new_location_calls) == (1 if not direct and not scenario["matches"] else 0)
+    assert len(new_location_calls) == (1 if scenario["kind"] == "missing" else 0)
     if new_location_calls:
         assert json.loads(new_location_calls[0]["function"]["arguments"]) == {}
 
     fulfillment = [json.loads(c["function"]["arguments"]) for c in calls if c["function"]["name"] == "can_fulfill_material_request"]
-    if not direct and not scenario["matches"]:
-        assert not fulfillment
-        return
-
     assert len(fulfillment) == 1
     expected = {
         "material_id": scenario["material_id"],
@@ -247,12 +282,12 @@ def validate(scenario, messages):
         "plant_id": scenario["selected_plant_id"],
     }
     assert fulfillment[0] == expected
-    if len(scenario["matches"]) > 1:
+    if len(final_matches) > 1:
         assert [m["role"] for m in messages][-2:] == ["user", "assistant"]
         assert messages[-2]["content"] == scenario["selected_plant_name"]
         selected = next(
             plant
-            for plant in scenario["matches"]
+            for plant in final_matches
             if plant["name"] == messages[-2]["content"]
         )
         assert fulfillment[0]["plant_id"] == selected["plant_id"]

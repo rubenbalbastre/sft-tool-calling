@@ -238,11 +238,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gpt-5.4-nano")
     parser.add_argument("--reasoning-effort", default="none")
-    parser.add_argument("--episodes", type=int, default=20)
+    parser.add_argument("--episodes", type=int, default=1)
     parser.add_argument("--seed", type=int, default=1234)
-    parser.add_argument("--max-steps", type=int, default=4)
+    parser.add_argument("--max-steps", type=int, default=5)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
-    parser.add_argument("--prompt-file", type=Path)
     parser.add_argument("--output", type=Path, default=Path("evaluation/results.jsonl"))
     args = parser.parse_args()
 

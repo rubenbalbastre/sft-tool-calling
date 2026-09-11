@@ -28,7 +28,7 @@ Valencia Manufacturing,ES-03,Valencia
 Valencia Distribution Centre,ES-08,Valencia
 ```
 
-[`environment/tools.py`](environment/tools.py) exposes three deterministic tools.
+[`environment/tools.py`](environment/tools.py) exposes four deterministic tools.
 
 ### `check_location`
 
@@ -89,7 +89,7 @@ This is the terminal task action. Its arguments must preserve the material, quan
 request_new_location()
 ```
 
-This is the structured terminal action for a city with no matching records. Like structured clarification, it makes the intended behavior directly verifiable without judging free-form assistant wording.
+This structured action asks the user for another city after a lookup has no matching records. Like structured clarification, it makes the behavior directly verifiable without judging free-form assistant wording. The simulated user then provides a replacement city and the normal lookup process starts again.
 
 ## Valid trajectories
 
@@ -137,9 +137,13 @@ user request for an unknown city
 → check_location(city=<city>)
 → no records
 → request_new_location()
+→ user provides a replacement city
+→ check_location(city=<replacement city>)
+→ resolve one or multiple matches
+→ can_fulfill_material_request(plant_id=<resolved plant>, ...)
 ```
 
-The assistant must not invent a plant ID or call fulfillment.
+The assistant must not invent a plant ID or call fulfillment before resolving the replacement city. If the replacement city has multiple plants, the clarification trajectory is used before fulfillment.
 
 ### Distractor plant ID
 
@@ -157,7 +161,7 @@ The generator does not compare a rollout with exact assistant wording. It verifi
 - The simulated user's selection is one of those records.
 - The final fulfillment plant ID corresponds to the user's selection.
 - Material ID, quantity, unit, and required date are unchanged.
-- Zero-match trajectories never contain a fulfillment call.
+- A zero-match lookup is followed by `request_new_location`, a user-provided replacement city, and another lookup before fulfillment.
 
 These invariants allow multiple valid linguistic realizations and make the task suitable for RLVR: reward can be based on whether the actions and state transitions are correct, not whether the output matches a specific training example.
 
@@ -186,24 +190,26 @@ env = SupplyChainEnvironment(
     scenario,
     user_request,
     reward_weights={
-        "lookup": 0.3,
-        "clarification": 0.4,
+        "lookup": 0.25,
+        "clarification": 0.25,
+        "new_location": 0.1,
     },
     success_reward=1.0,
     failure_reward=0.0,
 )
 ```
 
-The default intermediate weights are `0.2` for a valid city lookup and `0.2` for valid clarification. Intermediate rewards are issued only once because the state machine advances after every accepted action. On successful completion, the terminal action receives the unallocated portion of `success_reward`. Therefore all successful paths have the same total return even though longer paths receive intermediate feedback:
+The default intermediate weights are `0.2` for a valid city lookup, `0.2` for valid clarification, and `0.2` for requesting a replacement city. On successful completion, the terminal action receives the unallocated portion of `success_reward`. Therefore all successful paths have the same total return even though longer paths receive intermediate feedback:
 
 ```text
 direct:     1.0
 unique:     0.2 lookup + 0.8 fulfillment = 1.0
 ambiguous:  0.2 lookup + 0.2 clarification + 0.6 fulfillment = 1.0
-no match:   0.2 lookup + 0.8 request-new-location = 1.0
+no match:   0.2 failed lookup + 0.2 replacement request
+            + 0.2 replacement lookup + 0.4 fulfillment = 1.0
 ```
 
-Weights must be non-negative and their sum cannot exceed `success_reward`. If a later action fails, the final transition claws back previously issued intermediate rewards so the complete episode return equals `failure_reward`. This prevents a model from retaining lookup credit for an ultimately invalid trajectory. `failure_reward` can be negative when failed episodes should receive an additional penalty.
+Weights must be non-negative. Their maximum possible total—two lookups, a replacement-city request, and clarification—cannot exceed `success_reward`. If a later action fails, the final transition claws back previously issued intermediate rewards so the complete episode return equals `failure_reward`. This prevents a model from retaining lookup credit for an ultimately invalid trajectory. `failure_reward` can be negative when failed episodes should receive an additional penalty.
 
 `step()` also accepts an OpenAI-style function call whose `arguments` value is a JSON string. The environment tracks four expected-action states:
 

@@ -61,19 +61,37 @@ class SupplyChainEnvironmentTest(unittest.TestCase):
         self.assertEqual((reward, done), (0.6, True))
 
     def test_unknown_city_requests_new_location(self):
-        scenario = BASE | {"city": "Albor"}
+        scenario = BASE | {
+            "city": "Albor",
+            "replacement_city": "Bilbao",
+            "selected_plant_id": "ES-09",
+        }
         env = SupplyChainEnvironment(scenario, "Can Albor fulfill the request?")
         env.reset()
         env.step(action("check_location", city="Albor"))
-        _, reward, done, _ = env.step(action("request_new_location"))
-        self.assertEqual((reward, done), (0.8, True))
+        observation, reward, done, _ = env.step(action("request_new_location"))
+        self.assertEqual(observation["content"], "Bilbao")
+        self.assertEqual((reward, done), (0.2, False))
+        env.step(action("check_location", city="Bilbao"))
+        _, reward, done, info = env.step(action(
+            "can_fulfill_material_request",
+            material_id="MAT-1842", quantity=350, unit="kg",
+            required_date="2026-10-15", plant_id="ES-09",
+        ))
+        self.assertAlmostEqual(reward, 0.4)
+        self.assertTrue(done)
+        self.assertEqual(info["episode_return"], 1.0)
 
     def test_intermediate_reward_weights_are_configurable(self):
         scenario = BASE | {"city": "Valencia", "selected_plant_id": "ES-03"}
         env = SupplyChainEnvironment(
             scenario,
             "Can Valencia fulfill the request?",
-            reward_weights={"lookup": 0.3, "clarification": 0.4},
+            reward_weights={
+                "lookup": 0.3,
+                "clarification": 0.4,
+                "new_location": 0.0,
+            },
         )
         env.reset()
         _, lookup_reward, _, _ = env.step(action("check_location", city="Valencia"))

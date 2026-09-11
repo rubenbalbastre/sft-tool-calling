@@ -26,20 +26,29 @@ class SupplyChainEnvironment:
         self.reward_weights = {
             "lookup": 0.2,
             "clarification": 0.2,
+            "new_location": 0.2,
             **(reward_weights or {}),
         }
         self.success_reward = success_reward
         self.failure_reward = failure_reward
-        unknown_weights = set(self.reward_weights) - {"lookup", "clarification"}
+        unknown_weights = set(self.reward_weights) - {
+            "lookup", "clarification", "new_location"
+        }
         if unknown_weights:
             raise ValueError(f"Unknown intermediate reward weights: {unknown_weights}")
         if any(weight < 0 for weight in self.reward_weights.values()):
             raise ValueError("Intermediate reward weights cannot be negative")
-        if sum(self.reward_weights.values()) > success_reward:
+        maximum_intermediate_reward = (
+            2 * self.reward_weights["lookup"]
+            + self.reward_weights["clarification"]
+            + self.reward_weights["new_location"]
+        )
+        if maximum_intermediate_reward > success_reward:
             raise ValueError("Intermediate reward weights cannot exceed success_reward")
         self.state = None
         self.matches = []
         self.selected_plant_id = None
+        self.current_city = None
         self.history = []
         self.done = False
         self.return_so_far = 0.0
@@ -48,6 +57,7 @@ class SupplyChainEnvironment:
         """Start a fresh episode and return the initial user observation."""
         self.matches = []
         self.selected_plant_id = None
+        self.current_city = self.scenario.get("city")
         self.history = []
         self.done = False
         self.return_so_far = 0.0
@@ -87,6 +97,7 @@ class SupplyChainEnvironment:
         reward_name = {
             "check_location": "lookup",
             "ask_for_clarification": "clarification",
+            "request_new_location": "new_location",
         }.get(name)
         reward = self.reward_weights.get(reward_name, 0.0)
         self.return_so_far += reward
@@ -109,7 +120,7 @@ class SupplyChainEnvironment:
 
     def _lookup(self, name, arguments):
         self._require_tool(name, "check_location")
-        expected = {"city": self.scenario["city"]}
+        expected = {"city": self.current_city}
         if arguments != expected:
             raise ValueError(f"Expected lookup arguments {expected}, got {arguments}")
 
@@ -152,8 +163,16 @@ class SupplyChainEnvironment:
         if arguments:
             raise ValueError("request_new_location takes no arguments")
         result = request_new_location()
-        self.state = "success"
-        return self._tool_observation(name, result)
+        replacement_city = self.scenario.get("replacement_city")
+        if not replacement_city:
+            raise ValueError("Scenario does not provide a replacement city")
+        self.current_city = replacement_city
+        self.state = "expect_lookup"
+        return {
+            "role": "user",
+            "content": replacement_city,
+            "tool_result": result,
+        }
 
     def _fulfill(self, name, arguments):
         self._require_tool(name, "can_fulfill_material_request")
