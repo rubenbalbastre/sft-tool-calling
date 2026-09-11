@@ -6,7 +6,7 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 
-from environment.tools import MASTER_DATA, check_location
+from environment.tools import MASTER_DATA, ask_for_clarification, check_location
 
 
 LANGUAGES = ["English", "Spanish", "German", "French"]
@@ -41,12 +41,6 @@ REQUESTS = {
         "Pour {target}, il manque encore {quantity} {unit} de {material} le {date}. Peut-on couvrir ce besoin ?",
         "Le besoin ultérieur est couvert. À {target}, il manque {quantity} {unit} de {material} pour le {date}. Merci de vérifier ce manque.",
     ],
-}
-CLARIFY = {
-    "English": "Which location do you mean: {options}?",
-    "Spanish": "¿A qué ubicación te refieres: {options}?",
-    "German": "Welchen Standort meinst du: {options}?",
-    "French": "Quel site voulez-vous dire : {options} ?",
 }
 NOT_FOUND = {
     "English": "I couldn't find a plant matching {location}. Please give a more precise or different location.",
@@ -167,10 +161,23 @@ def build_conversation(scenario):
             return messages
 
         if len(scenario["matches"]) > 1:
-            options = " / ".join(p["name"] for p in scenario["matches"])
+            candidate_ids = [plant["plant_id"] for plant in scenario["matches"]]
             messages.append({
                 "role": "assistant",
-                "content": CLARIFY[scenario["language"]].format(options=options),
+                "content": "",
+                "tool_calls": [call(
+                    "clarification_1",
+                    "ask_for_clarification",
+                    {"candidate_plant_ids": candidate_ids},
+                )],
+            })
+            messages.append({
+                "role": "tool",
+                "name": "ask_for_clarification",
+                "tool_call_id": "clarification_1",
+                "content": json.dumps(
+                    ask_for_clarification(candidate_ids), ensure_ascii=False
+                ),
             })
             messages.append({"role": "user", "content": scenario["selected_plant_name"]})
 
@@ -200,6 +207,19 @@ def validate(scenario, messages):
         assert scenario["matches"] == check_location(scenario["city"])["matches"]
         assert all(set(plant) == {"name", "plant_id", "city"} for plant in scenario["matches"])
 
+    clarification_calls = [
+        c for c in calls if c["function"]["name"] == "ask_for_clarification"
+    ]
+    if len(scenario["matches"]) > 1:
+        assert len(clarification_calls) == 1
+        clarification_args = json.loads(
+            clarification_calls[0]["function"]["arguments"]
+        )
+        expected_candidates = [p["plant_id"] for p in scenario["matches"]]
+        assert clarification_args == {"candidate_plant_ids": expected_candidates}
+    else:
+        assert not clarification_calls
+
     fulfillment = [json.loads(c["function"]["arguments"]) for c in calls if c["function"]["name"] == "can_fulfill_material_request"]
     if not direct and not scenario["matches"]:
         assert not fulfillment
@@ -216,6 +236,13 @@ def validate(scenario, messages):
     assert fulfillment[0] == expected
     if len(scenario["matches"]) > 1:
         assert [m["role"] for m in messages][-2:] == ["user", "assistant"]
+        assert messages[-2]["content"] == scenario["selected_plant_name"]
+        selected = next(
+            plant
+            for plant in scenario["matches"]
+            if plant["name"] == messages[-2]["content"]
+        )
+        assert fulfillment[0]["plant_id"] == selected["plant_id"]
 
 
 def generate(count, split, seed):
