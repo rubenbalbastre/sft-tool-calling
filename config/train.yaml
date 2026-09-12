@@ -1,6 +1,5 @@
 dataset:
-  train_file: "./data/pilot/train.json"
-  validation_file: "./data/pilot/validation.json"
+  file: "./data/pilot/hf_dataset"
 
 train:
   model_name: "HuggingFaceTB/SmolLM3-3B"

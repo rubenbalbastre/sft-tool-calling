@@ -1,5 +1,5 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from datasets import load_dataset
+from datasets import load_from_disk
 from huggingface_hub import login
 from trl import SFTTrainer, SFTConfig
 from dotenv import load_dotenv
@@ -26,8 +26,7 @@ def main(args):
     model, tokenizer = load_model_and_tokenizer(args)
     print("Model and tokenizer loaded successfully.")
 
-    train_dataset = load_dataset(args.dataset.train_file)
-    eval_dataset = load_dataset(args.dataset.validation_file)
+    dataset = load_from_disk(args.dataset.train_file)
     print("Datasets loaded successfully.")
 
     config = SFTConfig(
@@ -43,8 +42,8 @@ def main(args):
         model=model, 
         processing_class=tokenizer, 
         config=config,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        train_dataset=dataset['train'],
+        eval_dataset=dataset['validation'],
         callback=None,
     )
     print("Trainer initialized successfully.")
