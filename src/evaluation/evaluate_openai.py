@@ -13,9 +13,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from data_generation.generate_sft_data import generate
-from environment.env import SupplyChainEnvironment
-from environment.tools import TOOLS
+from src.data_generation.generate_sft_data import generate
+from src.environment.env import SupplyChainEnvironment
+from src.environment.tools import TOOLS
 
 
 DEFAULT_PROMPT = """You handle supply-chain material requests using tools.

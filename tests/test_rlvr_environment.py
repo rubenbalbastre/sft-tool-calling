@@ -1,6 +1,6 @@
 import unittest
 
-from environment.env import SupplyChainEnvironment
+from src.environment.env import SupplyChainEnvironment
 
 
 BASE = {

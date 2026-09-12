@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from evaluation.evaluate_openai import create_run_directory, run_episode, summarize
-from environment.tools import TOOLS
+from src.evaluation.evaluate_openai import create_run_directory, run_episode, summarize
+from src.environment.tools import TOOLS
 
 class FakeResponses:
     def __init__(self, calls):

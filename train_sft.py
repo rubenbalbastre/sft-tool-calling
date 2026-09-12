@@ -1,0 +1,54 @@
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from datasets import load_dataset
+from huggingface_hub import login
+from trl import SFTTrainer, SFTConfig
+from dotenv import load_dotenv
+import os
+import hydra
+
+
+def setup():
+    load_dotenv()
+    login(os.environ.get("HUGGINGFACE_API_KEY"))
+
+
+def load_model_and_tokenizer(args):
+
+    model = AutoModelForCausalLM.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+
+    return model, tokenizer
+
+@hydra.main(config_path="configs", config_name="config")
+def main(args):
+    setup()
+    model, tokenizer = load_model_and_tokenizer(args)
+    print("Model and tokenizer loaded successfully.")
+
+    train_dataset = load_dataset(args.dataset.train_file)
+    eval_dataset = load_dataset(args.dataset.validation_file)
+    print("Datasets loaded successfully.")
+
+    config = SFTConfig(
+        per_device_train_batch_size=args.per_device_train_batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        learning_rate=args.learning_rate,
+        max_steps=args.max_steps,
+        per_device_eval_batch_size=args.per_device_eval_batch_size,
+        logging_steps=args.logging_steps,
+    )
+    trainer = SFTTrainer(
+        model=model, 
+        processing_class=tokenizer, 
+        config=config,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        callback=None,
+    )
+    print("Trainer initialized successfully.")
+
+    trainer.train()
+
+
+if __name__ == "__main__":
+    main()

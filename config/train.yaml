@@ -1,0 +1,16 @@
+dataset:
+  train_file: "./data/pilot/train.json"
+  validation_file: "./data/pilot/validation.json"
+
+train:
+  model_name: "HuggingFaceTB/SmolLM3-3B"
+  gradient_accumulation_steps: 4
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
+  learning_rate: 2e-5
+  max_steps: 1000
+  logging_steps: 100
+  checkpointing:
+    save_strategy: "steps"
+    save_steps: 500
+    save_total_limit: 3

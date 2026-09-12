@@ -1,0 +1,38 @@
+name,plant_id,city
+Munich Manufacturing,DE-04,Munich
+Munich Components Centre,DE-12,Munich
+Lyon Assembly,FR-02,Lyon
+Lyon Distribution Centre,FR-11,Lyon
+Madrid Logistics Hub,ES-11,Madrid
+Madrid Manufacturing,ES-14,Madrid
+Valencia Manufacturing,ES-03,Valencia
+Valencia Distribution Centre,ES-08,Valencia
+Hamburg Manufacturing,DE-07,Hamburg
+Hamburg Port Warehouse,DE-09,Hamburg
+Barcelona Assembly,ES-05,Barcelona
+Barcelona Logistics Centre,ES-16,Barcelona
+Seville Manufacturing,ES-07,Seville
+Bilbao Components Plant,ES-09,Bilbao
+Berlin Assembly,DE-02,Berlin
+Berlin Distribution Centre,DE-15,Berlin
+Frankfurt Logistics Hub,DE-05,Frankfurt
+Cologne Manufacturing,DE-11,Cologne
+Paris North Distribution,FR-05,Paris
+Paris South Assembly,FR-06,Paris
+Marseille Manufacturing,FR-08,Marseille
+Lille Logistics Centre,FR-09,Lille
+Milan Manufacturing,IT-03,Milan
+Milan Distribution Centre,IT-08,Milan
+Turin Components Plant,IT-05,Turin
+Bologna Assembly,IT-11,Bologna
+Rotterdam Port Warehouse,NL-02,Rotterdam
+Rotterdam Distribution Centre,NL-07,Rotterdam
+Eindhoven Manufacturing,NL-05,Eindhoven
+Brussels Logistics Hub,BE-03,Brussels
+Antwerp Port Warehouse,BE-06,Antwerp
+Warsaw Manufacturing,PL-02,Warsaw
+Warsaw Distribution Centre,PL-09,Warsaw
+Prague Assembly,CZ-04,Prague
+Vienna Logistics Centre,AT-03,Vienna
+Lisbon Manufacturing,PT-02,Lisbon
+Porto Distribution Centre,PT-06,Porto

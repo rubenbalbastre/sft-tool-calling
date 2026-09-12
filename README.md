@@ -239,7 +239,7 @@ python3 -m data_generation.generate_sft_data \
   --output-dir data/sanity_500
 ```
 
-Python owns the scenarios, IDs, routing decisions, tool results, user selections, and expected final arguments. The built-in multilingual `REQUESTS` templates are only an offline verbalization mechanism for pipeline testing. They can later be replaced by a teacher LLM without changing environment behavior or target tool calls.
+Python owns the scenarios, IDs, routing decisions, tool results, user selections, and expected final arguments. The built-in multilingual `REQUESTS` collection contains 30 phrases per language: 10 simple, 10 medium, and 10 hard. Each scenario stores a seeded `request_variant`, making generation reproducible while exercising different phrasing. These templates are an offline verbalization mechanism and can later be replaced by a teacher LLM without changing environment behavior or target tool calls.
 
 Each JSONL row contains:
 

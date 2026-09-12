@@ -6,47 +6,15 @@ import random
 from datetime import date, timedelta
 from pathlib import Path
 
-from environment.tools import (
+from src.environment.tools import (
     MASTER_DATA,
     ask_for_clarification,
     check_location,
     request_new_location,
 )
+from data_generation.constants import LANGUAGES, KINDS, DIFFICULTIES, REQUESTS, DISTRACTOR_PREFIXES
 
 
-LANGUAGES = ["English", "Spanish", "German", "French"]
-KINDS = (
-    ["explicit"] * 30
-    + ["unique"] * 25
-    + ["ambiguous"] * 20
-    + ["missing"] * 10
-    + ["explicit_with_city"] * 10
-    + ["distractor"] * 5
-)
-DIFFICULTIES = ["simple"] * 30 + ["medium"] * 40 + ["hard"] * 30
-
-REQUESTS = {
-    "English": [
-        "Can {target} provide {quantity} {unit} of {material} by {date}?",
-        "For {target}, we still need {quantity} {unit} of {material} on {date}. Can we cover it?",
-        "The later requirement is covered. At {target}, the {date} run is short {quantity} {unit} of {material}. Please check that shortfall.",
-    ],
-    "Spanish": [
-        "¿Puede {target} suministrar {quantity} {unit} de {material} para el {date}?",
-        "Para {target} aún necesitamos {quantity} {unit} de {material} el {date}. ¿Podemos cubrirlo?",
-        "El requisito posterior ya está cubierto. En {target}, para el {date} faltan {quantity} {unit} de {material}. Comprueba ese faltante.",
-    ],
-    "German": [
-        "Kann {target} bis zum {date} {quantity} {unit} {material} liefern?",
-        "Für {target} fehlen am {date} noch {quantity} {unit} {material}. Können wir das decken?",
-        "Der spätere Bedarf ist gedeckt. In {target} fehlen für den Lauf am {date} noch {quantity} {unit} {material}. Bitte prüfe diesen Fehlbestand.",
-    ],
-    "French": [
-        "Est-ce que {target} peut fournir {quantity} {unit} de {material} pour le {date} ?",
-        "Pour {target}, il manque encore {quantity} {unit} de {material} le {date}. Peut-on couvrir ce besoin ?",
-        "Le besoin ultérieur est couvert. À {target}, il manque {quantity} {unit} de {material} pour le {date}. Merci de vérifier ce manque.",
-    ],
-}
 def balanced_sample(count, weighted_values, rng):
     """Take an approximately proportional sample, including small pilot sets."""
     labels = []
@@ -63,6 +31,7 @@ def make_scenario(index, split, kind, difficulty, rng):
         "language": language,
         "kind": kind,
         "difficulty": difficulty,
+        "request_variant": rng.randrange(10),
         "material_id": f"MAT-{rng.randint(1000, 9999)}",
         "quantity": rng.randint(10, 5000),
         "unit": rng.choice(["kg", "units"]),
@@ -115,6 +84,7 @@ def make_scenario(index, split, kind, difficulty, rng):
 
 def verbalize(scenario):
     level = {"simple": 0, "medium": 1, "hard": 2}[scenario["difficulty"]]
+    template_index = level * 10 + scenario["request_variant"]
     if scenario["kind"] == "explicit":
         target = scenario["explicit_plant_id"]
     elif scenario["kind"] == "explicit_with_city":
@@ -122,7 +92,7 @@ def verbalize(scenario):
     else:
         target = scenario["city"]
 
-    request = REQUESTS[scenario["language"]][level].format(
+    request = REQUESTS[scenario["language"]][template_index].format(
         target=target,
         quantity=scenario["quantity"],
         unit=scenario["unit"],
@@ -130,7 +100,9 @@ def verbalize(scenario):
         date=scenario["required_date"],
     )
     if scenario["distractor_plant_id"]:
-        request = f'The previous shipment used {scenario["distractor_plant_id"]}, but this request is different. {request}'
+        request = DISTRACTOR_PREFIXES[scenario["language"]].format(
+            plant_id=scenario["distractor_plant_id"]
+        ) + request
     return request
 
 
