@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 from datasets import load_from_disk
 from huggingface_hub import login
 from trl import SFTTrainer, SFTConfig
@@ -45,6 +45,8 @@ def load_model_and_tokenizer(args):
 
 @hydra.main(config_path="config", config_name="train", version_base=None)
 def main(args):
+    set_seed(args.train.seed, deterministic=True)
+
     report_to, run_name = setup()
     run_dir = PROJECT_ROOT / args.train.final_model.output_dir / run_name
     checkpoints_dir = run_dir / "checkpoints"
@@ -61,6 +63,8 @@ def main(args):
     print("Datasets loaded successfully.")
 
     config = SFTConfig(
+        seed=args.train.seed,
+        data_seed=args.train.seed,
         per_device_train_batch_size=args.train.per_device_train_batch_size,
         gradient_accumulation_steps=args.train.gradient_accumulation_steps,
         learning_rate=args.train.learning_rate,
