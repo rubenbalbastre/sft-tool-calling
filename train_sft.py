@@ -3,30 +3,50 @@ from datasets import load_from_disk
 from huggingface_hub import login
 from trl import SFTTrainer, SFTConfig
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 import hydra
 import wandb
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+
 def setup():
-    load_dotenv()
-    login(os.environ.get("HUGGINGFACE_API_KEY"))
-    wandb.login(key=os.environ.get("WANDB_API_KEY"))
+    load_dotenv(PROJECT_ROOT / ".env")
+
+    huggingface_api_key = os.environ.get("HUGGINGFACE_API_KEY")
+    if huggingface_api_key:
+        login(token=huggingface_api_key)
+
+    wandb_api_key = os.environ.get("WANDB_API_KEY")
+    wandb_project = os.environ.get("WANDB_PROJECT")
+    if wandb_api_key:
+        if not wandb_project:
+            raise ValueError(
+                "WANDB_PROJECT must be set when WANDB_API_KEY is configured."
+            )
+        wandb.login(key=wandb_api_key)
+        wandb.init(project=wandb_project)
+
+    return "wandb" if wandb_api_key else "none"
+
 
 def load_model_and_tokenizer(args):
-
-    model = AutoModelForCausalLM.from_pretrained(args.model_name)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    model = AutoModelForCausalLM.from_pretrained(args.train.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.train.model_name)
 
     return model, tokenizer
 
-@hydra.main(config_path="configs", config_name="config")
+
+@hydra.main(config_path="config", config_name="train", version_base=None)
 def main(args):
-    setup()
+    report_to = setup()
     model, tokenizer = load_model_and_tokenizer(args)
     print("Model and tokenizer loaded successfully.")
 
-    dataset = load_from_disk(args.dataset.train_file)
+    dataset_path = PROJECT_ROOT / args.dataset.file
+    dataset = load_from_disk(str(dataset_path))
     print("Datasets loaded successfully.")
 
     config = SFTConfig(
@@ -35,21 +55,29 @@ def main(args):
         learning_rate=args.train.learning_rate,
         max_steps=args.train.max_steps,
         per_device_eval_batch_size=args.train.per_device_eval_batch_size,
-        max_seq_length=args.train.max_seq_length,
+        max_length=args.train.max_seq_length,
+        bf16=args.train.bf16,
+        fp16=args.train.fp16,
+        use_cpu=args.train.use_cpu,
         logging_steps=args.train.logging_steps,
-        report_to="wandb"
+        save_strategy=args.train.checkpointing.save_strategy,
+        save_steps=args.train.checkpointing.save_steps,
+        save_total_limit=args.train.checkpointing.save_total_limit,
+        output_dir=str(PROJECT_ROOT / "outputs"),
+        report_to=report_to,
     )
     trainer = SFTTrainer(
-        model=model, 
-        processing_class=tokenizer, 
-        config=config,
-        train_dataset=dataset['train'],
-        eval_dataset=dataset['validation'],
-        callback=None,
+        model=model,
+        processing_class=tokenizer,
+        args=config,
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["validation"],
     )
     print("Trainer initialized successfully.")
 
     trainer.train()
+    if report_to == "wandb":
+        wandb.finish()
 
 
 if __name__ == "__main__":

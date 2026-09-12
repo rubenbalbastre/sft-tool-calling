@@ -1,15 +1,18 @@
 dataset:
-  file: "./data/pilot/hf_dataset"
+  file: "data/pilot/hf_dataset/"
 
 train:
-  model_name: "HuggingFaceTB/SmolLM3-3B"
-  gradient_accumulation_steps: 4
-  per_device_train_batch_size: 16
-  per_device_eval_batch_size: 16
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct" # "HuggingFaceTB/SmolLM3-3B"
+  gradient_accumulation_steps: 1 # 4
+  per_device_train_batch_size: 1 # 16
+  per_device_eval_batch_size: 1 # 16
   max_seq_length: 1024
   learning_rate: 2e-5
-  max_steps: 1000
-  logging_steps: 100
+  max_steps: 5 # 1000
+  use_cpu: true # false
+  bf16: false # true
+  fp16: false # true
+  logging_steps: 1
   checkpointing:
     save_strategy: "steps"
     save_steps: 500
