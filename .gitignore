@@ -1,9 +1,7 @@
 .venv
 .env
 *.jsonl
-data/
-environment/*.csv
-evaluation/*.json
-evaluation/*.csv
-evaluation/*.jsonl
+*.pyc
 */__pycache__/*
+
+data/
