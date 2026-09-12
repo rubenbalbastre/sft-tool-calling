@@ -5,12 +5,13 @@ from trl import SFTTrainer, SFTConfig
 from dotenv import load_dotenv
 import os
 import hydra
+import wandb
 
 
 def setup():
     load_dotenv()
     login(os.environ.get("HUGGINGFACE_API_KEY"))
-
+    wandb.login(key=os.environ.get("WANDB_API_KEY"))
 
 def load_model_and_tokenizer(args):
 
@@ -36,6 +37,7 @@ def main(args):
         max_steps=args.max_steps,
         per_device_eval_batch_size=args.per_device_eval_batch_size,
         logging_steps=args.logging_steps,
+        report_to="wandb"
     )
     trainer = SFTTrainer(
         model=model, 
