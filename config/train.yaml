@@ -21,4 +21,4 @@ train:
     save_total_limit: 3
   final_model:
     save: true
-    output_dir: "outputs/final_model"
+    output_dir: "outputs"

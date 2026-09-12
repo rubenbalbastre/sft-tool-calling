@@ -4,6 +4,7 @@ from huggingface_hub import login
 from trl import SFTTrainer, SFTConfig
 from dotenv import load_dotenv
 from pathlib import Path
+from omegaconf import OmegaConf
 import os
 import hydra
 import wandb
@@ -80,10 +81,12 @@ def main(args):
     trainer.train()
 
     if args.train.final_model.save:
-        final_model_dir = PROJECT_ROOT / args.train.final_model.output_dir
+        run_name = wandb.run.name if report_to == "wandb" else "local-run"
+        final_model_dir = PROJECT_ROOT / args.train.final_model.output_dir / run_name
         trainer.save_model(str(final_model_dir))
         tokenizer.save_pretrained(str(final_model_dir))
-        print(f"Final model and tokenizer saved to {final_model_dir}")
+        OmegaConf.save(args, final_model_dir / "train.yaml")
+        print(f"Final model, tokenizer, and configuration saved to {final_model_dir}")
 
     if report_to == "wandb":
         wandb.finish()
