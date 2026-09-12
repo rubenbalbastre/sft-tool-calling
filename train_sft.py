@@ -60,6 +60,8 @@ def main(args):
         fp16=args.train.fp16,
         use_cpu=args.train.use_cpu,
         logging_steps=args.train.logging_steps,
+        eval_strategy=args.train.eval_strategy,
+        eval_steps=args.train.eval_steps,
         save_strategy=args.train.checkpointing.save_strategy,
         save_steps=args.train.checkpointing.save_steps,
         save_total_limit=args.train.checkpointing.save_total_limit,
