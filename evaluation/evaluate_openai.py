@@ -13,78 +13,15 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from data_generation.generate_sft_data import generate
-from environment import SupplyChainEnvironment
+from environment.env import SupplyChainEnvironment
+from environment.tools import TOOLS
 
 
 DEFAULT_PROMPT = """You handle supply-chain material requests using tools.
-If the user gives an explicit target plant ID, call fulfillment directly.
+If the user gives an explicit target plant ID (which is in the from CC-NN), call fulfillment directly.
 Otherwise resolve the requested city. Clarify when multiple plants match, and
 request a new location when none match. Preserve the original material,
 quantity, unit, and date. Never invent a plant ID. Use only tool calls."""
-
-TOOLS = [
-    {
-        "type": "function",
-        "name": "check_location",
-        "description": "Find all plants in a city.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {"city": {"type": "string"}},
-            "required": ["city"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "type": "function",
-        "name": "ask_for_clarification",
-        "description": "Ask the user to select one of multiple matching plants.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "candidate_plant_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                }
-            },
-            "required": ["candidate_plant_ids"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "type": "function",
-        "name": "request_new_location",
-        "description": "Ask for another city when location lookup has no matches.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "type": "function",
-        "name": "can_fulfill_material_request",
-        "description": "Check fulfillment at one resolved plant.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "material_id": {"type": "string"},
-                "quantity": {"type": "number"},
-                "unit": {"type": "string", "enum": ["kg", "units"]},
-                "required_date": {"type": "string"},
-                "plant_id": {"type": "string"},
-            },
-            "required": [
-                "material_id", "quantity", "unit", "required_date", "plant_id"
-            ],
-            "additionalProperties": False,
-        },
-    },
-]
 
 
 def response_call(response):
@@ -117,8 +54,6 @@ def next_input(call, observation):
 
 def add_usage(total, response):
     usage = response.usage
-    if usage is None:
-        return
     total["input_tokens"] += usage.input_tokens
     total["output_tokens"] += usage.output_tokens
     total["total_tokens"] += usage.total_tokens
@@ -244,10 +179,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gpt-5.4-nano")
     parser.add_argument("--reasoning-effort", default="none")
-    parser.add_argument("--episodes", type=int, default=4)
+    parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--max-steps", type=int, default=5)
-    parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--output", type=Path, default=Path("evaluation/results.jsonl"))
     args = parser.parse_args()
 
@@ -255,7 +189,7 @@ def main():
     from dotenv import load_dotenv
 
     load_dotenv(PROJECT_ROOT / ".env")
-    prompt = args.prompt
+    prompt = DEFAULT_PROMPT
     rows = generate(args.episodes, "evaluation", args.seed)
     client = OpenAI()
     results = []

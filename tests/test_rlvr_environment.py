@@ -1,6 +1,6 @@
 import unittest
 
-from environment.rlvr import SupplyChainEnvironment
+from environment.env import SupplyChainEnvironment
 
 
 BASE = {

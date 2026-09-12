@@ -9,6 +9,70 @@ MASTER_DATA_PATH = Path(__file__).parent / "master_data.csv"
 with MASTER_DATA_PATH.open(encoding="utf-8", newline="") as file:
     MASTER_DATA = list(csv.DictReader(file))
 
+TOOLS = [
+    {
+        "type": "function",
+        "name": "check_location",
+        "description": "Find all plants in a city.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "ask_for_clarification",
+        "description": "Ask the user to select one of multiple matching plants.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "candidate_plant_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                }
+            },
+            "required": ["candidate_plant_ids"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "request_new_location",
+        "description": "Ask for another city when location lookup has no matches.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "can_fulfill_material_request",
+        "description": "Check fulfillment at one resolved plant.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "material_id": {"type": "string"},
+                "quantity": {"type": "number"},
+                "unit": {"type": "string", "enum": ["kg", "units"]},
+                "required_date": {"type": "string"},
+                "plant_id": {"type": "string"},
+            },
+            "required": [
+                "material_id", "quantity", "unit", "required_date", "plant_id"
+            ],
+            "additionalProperties": False,
+        },
+    },
+]
+
 
 def check_location(city):
     """Return every plant whose city matches the supplied city."""
