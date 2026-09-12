@@ -30,7 +30,10 @@ def setup():
         wandb.login(key=wandb_api_key)
         wandb.init(project=wandb_project)
 
-    return "wandb" if wandb_api_key else "none"
+    if wandb_api_key:
+        return "wandb", wandb.run.name
+
+    return "none", "local-run"
 
 
 def load_model_and_tokenizer(args):
@@ -42,7 +45,14 @@ def load_model_and_tokenizer(args):
 
 @hydra.main(config_path="config", config_name="train", version_base=None)
 def main(args):
-    report_to = setup()
+    report_to, run_name = setup()
+    run_dir = PROJECT_ROOT / args.train.final_model.output_dir / run_name
+    checkpoints_dir = run_dir / "checkpoints"
+    final_model_dir = run_dir / "final_model"
+    config_dir = run_dir / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    OmegaConf.save(args, config_dir / "train.yaml")
+
     model, tokenizer = load_model_and_tokenizer(args)
     print("Model and tokenizer loaded successfully.")
 
@@ -66,7 +76,7 @@ def main(args):
         save_strategy=args.train.checkpointing.save_strategy,
         save_steps=args.train.checkpointing.save_steps,
         save_total_limit=args.train.checkpointing.save_total_limit,
-        output_dir=str(PROJECT_ROOT / "outputs"),
+        output_dir=str(checkpoints_dir),
         report_to=report_to,
     )
     trainer = SFTTrainer(
@@ -81,12 +91,9 @@ def main(args):
     trainer.train()
 
     if args.train.final_model.save:
-        run_name = wandb.run.name if report_to == "wandb" else "local-run"
-        final_model_dir = PROJECT_ROOT / args.train.final_model.output_dir / run_name
         trainer.save_model(str(final_model_dir))
         tokenizer.save_pretrained(str(final_model_dir))
-        OmegaConf.save(args, final_model_dir / "train.yaml")
-        print(f"Final model, tokenizer, and configuration saved to {final_model_dir}")
+        print(f"Run artifacts saved to {run_dir}")
 
     if report_to == "wandb":
         wandb.finish()
