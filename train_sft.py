@@ -78,6 +78,13 @@ def main(args):
     print("Trainer initialized successfully.")
 
     trainer.train()
+
+    if args.train.final_model.save:
+        final_model_dir = PROJECT_ROOT / args.train.final_model.output_dir
+        trainer.save_model(str(final_model_dir))
+        tokenizer.save_pretrained(str(final_model_dir))
+        print(f"Final model and tokenizer saved to {final_model_dir}")
+
     if report_to == "wandb":
         wandb.finish()
 
