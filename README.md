@@ -297,18 +297,20 @@ The evaluator calls `load_dotenv()` before creating the OpenAI client. Existing 
 .venv/bin/python -m evaluation.evaluate_openai \
   --model gpt-5.4-nano \
   --reasoning-effort none \
-  --episodes 20 \
-  --output evaluation/gpt-5.4-nano.jsonl
+  --episodes 20
 ```
 
 Evaluation makes paid API calls. Start with a small number of episodes before increasing the sample size.
 
-To evaluate a different prompt without changing source code:
+Each invocation creates the next numbered directory under `data/evals/`:
 
-```bash
-.venv/bin/python -m evaluation.evaluate_openai \
-  --prompt-file prompts/my_prompt.txt \
-  --episodes 50
+```text
+data/evals/eval-0001/
+├── config.json
+├── results.json
+└── results.jsonl
 ```
 
-The JSONL output contains one complete result per episode. A sibling `.summary.json` file reports overall success rate, average return, token totals, total latency, and results grouped by trajectory kind. Use the same seed and episode count when comparing prompts or models.
+`config.json` records the model, reasoning effort, prompt, tool schemas, seed, episode count, step limit, and UTC creation time. `results.jsonl` contains one complete trace per episode. `results.json` contains the same episode results together with overall and per-trajectory summaries, token totals, and latency. Use the same seed and episode count when comparing prompts or models.
+
+Use `--output-root` only when the numbered runs should be stored somewhere other than `data/evals/`.

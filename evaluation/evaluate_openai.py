@@ -5,6 +5,7 @@ import json
 import sys
 import time
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Direct execution adds evaluation/ to sys.path, not the repository root.
@@ -175,14 +176,31 @@ def summarize(results):
     }
 
 
+def create_run_directory(output_root):
+    """Atomically create the next data/evals/eval-NNNN directory."""
+    output_root.mkdir(parents=True, exist_ok=True)
+    run_number = 1
+    while True:
+        run_directory = output_root / f"eval-{run_number:04d}"
+        try:
+            run_directory.mkdir()
+            return run_directory
+        except FileExistsError:
+            run_number += 1
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gpt-5.4-nano")
     parser.add_argument("--reasoning-effort", default="none")
-    parser.add_argument("--episodes", type=int, default=10)
+    parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--seed", type=int, default=1234)
-    parser.add_argument("--max-steps", type=int, default=5)
-    parser.add_argument("--output", type=Path, default=Path("evaluation/results.jsonl"))
+    parser.add_argument("--max-steps", type=int, default=10)
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=PROJECT_ROOT / "data" / "evals",
+    )
     args = parser.parse_args()
 
     from openai import OpenAI
@@ -190,6 +208,21 @@ def main():
 
     load_dotenv(PROJECT_ROOT / ".env")
     prompt = DEFAULT_PROMPT
+    run_directory = create_run_directory(args.output_root)
+    config = {
+        "model": args.model,
+        "reasoning_effort": args.reasoning_effort,
+        "episodes": args.episodes,
+        "seed": args.seed,
+        "max_steps": args.max_steps,
+        "prompt": prompt,
+        "tools": TOOLS,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (run_directory / "config.json").write_text(
+        json.dumps(config, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     rows = generate(args.episodes, "evaluation", args.seed)
     client = OpenAI()
     results = []
@@ -203,20 +236,17 @@ def main():
             f"{'PASS' if result['success'] else 'FAIL'}"
         )
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("w", encoding="utf-8") as file:
+    with (run_directory / "results.jsonl").open("w", encoding="utf-8") as file:
         for result in results:
             file.write(json.dumps(result, ensure_ascii=False) + "\n")
 
     summary = summarize(results)
-    summary.update({
-        "model": args.model,
-        "reasoning_effort": args.reasoning_effort,
-        "prompt": prompt,
-        "seed": args.seed,
-    })
-    summary_path = args.output.with_suffix(".summary.json")
-    summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    results_document = {"summary": summary, "results": results}
+    (run_directory / "results.json").write_text(
+        json.dumps(results_document, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Saved evaluation run to {run_directory}")
     print(json.dumps(summary, indent=2))
 
 

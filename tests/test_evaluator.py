@@ -1,8 +1,10 @@
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
-from evaluation.evaluate_openai import run_episode, summarize
+from evaluation.evaluate_openai import create_run_directory, run_episode, summarize
 from environment.tools import TOOLS
 
 class FakeResponses:
@@ -26,6 +28,12 @@ class FakeResponses:
 
 
 class EvaluatorTest(unittest.TestCase):
+    def test_run_directories_are_numbered(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.assertEqual(create_run_directory(root).name, "eval-0001")
+            self.assertEqual(create_run_directory(root).name, "eval-0002")
+
     def test_ambiguous_online_rollout(self):
         scenario = {
             "scenario_id": "test_1",
