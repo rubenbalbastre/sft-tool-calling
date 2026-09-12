@@ -5,22 +5,22 @@ This project provides a small supply-chain task for supervised fine-tuning (SFT)
 ## Project structure
 
 ```text
-environment/
+src/environment/
 ├── master_data.csv       # Plant master data
 └── tools.py              # Deterministic task tools
 
-data_generation/
+src/data_generation/
 └── generate_sft_data.py  # Scenarios, conversations, and validation
 
 data/
-└── pilot/                # Generated train/eval JSONL files
+└── pilot/hf_dataset/     # Saved Hugging Face DatasetDict
 ```
 
-The separation is intentional. `environment/` defines what actions mean and what results they produce. `data_generation/` decides which situations to sample and turns them into complete training conversations.
+The separation is intentional. `src/environment/` defines what actions mean and what results they produce. `src/data_generation/` decides which situations to sample and turns them into complete training conversations.
 
 ## Environment
 
-[`environment/master_data.csv`](environment/master_data.csv) contains 37 plants across 26 European cities. Each record has the same three fields:
+[`src/environment/master_data.csv`](src/environment/master_data.csv) contains 37 plants across 26 European cities. Each record has the same three fields:
 
 ```csv
 name,plant_id,city
@@ -28,7 +28,7 @@ Valencia Manufacturing,ES-03,Valencia
 Valencia Distribution Centre,ES-08,Valencia
 ```
 
-[`environment/tools.py`](environment/tools.py) exposes four deterministic tools.
+[`src/environment/tools.py`](src/environment/tools.py) exposes four deterministic tools.
 
 ### `check_location`
 
@@ -227,24 +227,31 @@ Correct intermediate transitions return their configured reward and the next obs
 Generate the small pilot from the repository root:
 
 ```bash
-python3 -m data_generation.generate_sft_data
+python3 -m src.data_generation.generate_sft_data
 ```
 
-The default configuration writes training and evaluation JSONL files under `data/pilot/`. Larger runs can be generated explicitly:
+The default configuration saves a native Hugging Face `DatasetDict` under `data/pilot/hf_dataset/` with `train`, `validation`, and `test` splits. Larger runs can be generated explicitly:
 
 ```bash
-python3 -m data_generation.generate_sft_data \
+python3 -m src.data_generation.generate_sft_data \
   --train-size 400 \
-  --eval-size 100 \
-  --output-dir data/sanity_500
+  --validation-size 50 \
+  --test-size 50 \
+  --output-dir data/sanity_500/hf_dataset
 ```
 
 Python owns the scenarios, IDs, routing decisions, tool results, user selections, and expected final arguments. The built-in multilingual `REQUESTS` collection contains 30 phrases per language: 10 simple, 10 medium, and 10 hard. Each scenario stores a seeded `request_variant`, making generation reproducible while exercising different phrasing. These templates are an offline verbalization mechanism and can later be replaced by a teacher LLM without changing environment behavior or target tool calls.
 
-Each JSONL row contains:
+Each row contains six columns:
 
-- `scenario`: the structured source of truth;
-- `messages`: the complete conversation in Hugging Face/OpenAI-style chat format.
+- `messages`: the complete Hugging Face/OpenAI-style conversation used for SFT;
+- `scenario_id`: a stable identifier for debugging;
+- `language`: the conversation language;
+- `trajectory_type`: the routing pattern;
+- `difficulty`: simple, medium, or hard;
+- `tool_sequence`: the expected ordered tool names.
+
+Training should consume only `messages`; the remaining lightweight metadata supports filtering and evaluation. Detailed hidden scenario state remains in the generation and RLVR environment rather than being published in the SFT dataset.
 
 Tool arguments are JSON strings under `assistant.tool_calls[].function.arguments`. Tool results use `role: "tool"` and the corresponding `tool_call_id`.
 
@@ -253,16 +260,10 @@ Tool arguments are JSON strings under `assistant.tool_calls[].function.arguments
 Before scaling, render pilot conversations with the exact tokenizer revision used for training:
 
 ```python
-from datasets import load_dataset
+from datasets import load_from_disk
 from transformers import AutoTokenizer
 
-dataset = load_dataset(
-    "json",
-    data_files={
-        "train": "data/pilot/train.jsonl",
-        "eval": "data/pilot/eval.jsonl",
-    },
-)
+dataset = load_from_disk("data/pilot/hf_dataset")
 tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM3-3B")
 row = dataset["train"][0]
 rendered = tokenizer.apply_chat_template(
@@ -271,6 +272,15 @@ rendered = tokenizer.apply_chat_template(
     tokenize=False,
 )
 print(rendered)
+```
+
+To share the saved dataset on the Hugging Face Hub:
+
+```python
+from datasets import load_from_disk
+
+dataset = load_from_disk("data/pilot/hf_dataset")
+dataset.push_to_hub("your-account/supply-chain-tool-calling")
 ```
 
 Keep every conversation intact during training. For assistant-only loss, train on assistant tool calls and assistant responses while masking user messages and tool results. Verify the pilot end to end before producing the larger dataset.

@@ -12,7 +12,13 @@ from src.environment.tools import (
     check_location,
     request_new_location,
 )
-from data_generation.constants import LANGUAGES, KINDS, DIFFICULTIES, REQUESTS, DISTRACTOR_PREFIXES
+from src.data_generation.constants import (
+    DIFFICULTIES,
+    DISTRACTOR_PREFIXES,
+    KINDS,
+    LANGUAGES,
+    REQUESTS,
+)
 
 
 def balanced_sample(count, weighted_values, rng):
@@ -278,27 +284,63 @@ def generate(count, split, seed):
     return rows
 
 
-def write_jsonl(path, rows):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as output:
-        for row in rows:
-            output.write(json.dumps(row, ensure_ascii=False) + "\n")
+def to_dataset_row(row):
+    """Flatten scenario metadata while preserving the complete conversation."""
+    scenario = row["scenario"]
+    tool_sequence = [
+        call["function"]["name"]
+        for message in row["messages"]
+        for call in message.get("tool_calls", [])
+    ]
+    return {
+        "messages": row["messages"],
+        "scenario_id": scenario["scenario_id"],
+        "language": scenario["language"],
+        "trajectory_type": scenario["kind"],
+        "difficulty": scenario["difficulty"],
+        "tool_sequence": tool_sequence,
+    }
+
+
+def build_dataset(train_size, validation_size, test_size, seed):
+    """Create a Hugging Face DatasetDict with deterministic split seeds."""
+
+    from datasets import Dataset, DatasetDict
+
+    split_sizes = {
+        "train": train_size,
+        "validation": validation_size,
+        "test": test_size,
+    }
+    return DatasetDict({
+        split: Dataset.from_list([
+            to_dataset_row(row)
+            for row in generate(size, split, seed + offset)
+        ])
+        for offset, (split, size) in enumerate(split_sizes.items(), start=1)
+    })
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train-size", type=int, default=4)
-    parser.add_argument("--eval-size", type=int, default=2)
+    parser.add_argument("--train-size", type=int, default=40)
+    parser.add_argument("--validation-size", type=int, default=5)
+    parser.add_argument("--test-size", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output-dir", type=Path, default=Path("data/pilot"))
+    parser.add_argument(
+        "--output-dir", type=Path, default=Path("data/pilot/hf_dataset")
+    )
     args = parser.parse_args()
 
-    # Freeze evaluation separately before producing training data.
-    eval_rows = generate(args.eval_size, "eval", args.seed + 1)
-    train_rows = generate(args.train_size, "train", args.seed + 2)
-    write_jsonl(args.output_dir / "eval.jsonl", eval_rows)
-    write_jsonl(args.output_dir / "train.jsonl", train_rows)
-    print(f"Wrote {len(train_rows)} train and {len(eval_rows)} eval conversations")
+    dataset = build_dataset(
+        args.train_size,
+        args.validation_size,
+        args.test_size,
+        args.seed,
+    )
+    dataset.save_to_disk(args.output_dir)
+    print(dataset)
+    print(f"Saved Hugging Face dataset to {args.output_dir}")
 
 
 if __name__ == "__main__":
