@@ -11,6 +11,7 @@ from src.evaluation.evaluate_local import (
     parse_transformers_response,
     run_episode as run_local_episode,
 )
+from src.evaluation.vllm import quantization_arguments
 from src.environment.tools import TOOLS
 
 class FakeResponses:
@@ -62,6 +63,13 @@ class SmolLM3TokenizerWithoutResponseTemplate:
 
 
 class EvaluatorTest(unittest.TestCase):
+    def test_vllm_quantization_arguments(self):
+        self.assertEqual(quantization_arguments("none"), [])
+        self.assertEqual(
+            quantization_arguments("bnb_4bit"),
+            ["--quantization", "bitsandbytes"],
+        )
+
     def test_smolllm3_xml_tool_call_parser(self):
         output = (
             '<tool_call>{"name":"check_location",'

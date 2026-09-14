@@ -311,6 +311,7 @@ def main(args):
             base_url=args.base_url,
             timeout=args.vllm_startup_timeout,
             log_path=run_directory / "vllm.log",
+            quantization=args.quantization,
         )
         server.start()
         try:

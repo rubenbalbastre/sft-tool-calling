@@ -363,6 +363,42 @@ processes a tool result. Turns remain ordered inside each episode. The
 Transformers backend always uses concurrency `1` because it performs inference
 directly in the evaluator process.
 
+`quantization` in `config/eval.yaml` controls only optional in-flight
+quantization and accepts two values:
+
+- `none` passes no quantization override to vLLM;
+- `bnb_4bit` asks vLLM to quantize the original checkpoint to BitsAndBytes
+  4-bit weights while loading it;
+
+For an in-flight 4-bit evaluation:
+
+```bash
+.venv/bin/python -m src.evaluation.evaluate_local \
+  backend=vllm \
+  model=outputs/breezy-surf-7/final_model \
+  quantization=bnb_4bit
+```
+
+This maps to `vllm serve --quantization bitsandbytes` and does not modify the
+saved checkpoint. It requires the vLLM BitsAndBytes plugin.
+
+Already-quantized checkpoints require no evaluation setting. Point `model` to
+the checkpoint and leave `quantization=none`. For example, a BitsAndBytes INT8
+checkpoint declares its quantization in `config.json`:
+
+```json
+{
+  "quantization_config": {
+    "quant_method": "bitsandbytes",
+    "load_in_8bit": true
+  }
+}
+```
+
+vLLM detects and loads that format from the checkpoint metadata. For an ordinary
+BF16/FP16 checkpoint, `quantization=none` remains unquantized; for a checkpoint
+that already declares INT8, the same setting loads its stored INT8 format.
+
 Both backends execute the same multi-turn environment and write the same `config.json`, `results.json`, and `results.jsonl` files under the next `data/evals/eval-NNNN/` directory. Direct Transformers inference uses the tokenizer's chat and response templates to format tools and parse generated calls. A model without tool-aware templates fails the episode explicitly instead of silently treating free text as a valid action.
 
 SmolLM3 supports vLLM's `hermes` tool-call parser. The evaluator sets

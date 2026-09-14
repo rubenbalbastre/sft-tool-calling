@@ -17,5 +17,6 @@ api_key: "local"
 served_model_name: "supply-chain"
 vllm_server_config: "config/vllm.yaml"
 vllm_startup_timeout: 300
+quantization: "none" # none or bnb_4bit; checkpoint quantization is auto-detected.
 
 output_root: "data/evals"
