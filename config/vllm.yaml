@@ -2,3 +2,4 @@ served-model-name: "supply-chain"
 enable-auto-tool-choice: true
 tool-call-parser: "hermes"
 generation-config: "vllm"
+enable-prefix-caching: true
