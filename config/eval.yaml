@@ -1,0 +1,16 @@
+backend: "transformers" # transformers or vllm
+model: "outputs/breezy-surf-7/final_model"
+
+episodes: 5
+seed: 1234
+max_steps: 10
+max_new_tokens: 256
+
+# Used by the direct Transformers backend.
+device: "auto"
+
+# Used by the OpenAI-compatible vLLM server backend.
+base_url: "http://localhost:8000/v1"
+api_key: "local"
+
+output_root: "data/evals"

@@ -1,0 +1,256 @@
+"""Evaluate a local model with Transformers or a running vLLM server."""
+
+import json
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import hydra
+from omegaconf import OmegaConf
+
+# Direct file execution adds src/evaluation, not the repository root, to sys.path.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.data_generation.generate_sft_data import generate
+from src.environment.env import SupplyChainEnvironment
+from src.environment.tools import TOOLS
+from src.evaluation.common import (
+    DEFAULT_PROMPT,
+    create_run_directory,
+    episode_result,
+    save_config,
+    save_results,
+)
+
+def chat_tools():
+    """Convert Responses API tool schemas to Chat Completions schemas."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                key: value
+                for key, value in tool.items()
+                if key not in {"type", "strict"}
+            },
+        }
+        for tool in TOOLS
+    ]
+
+
+def normalize_call(call):
+    function = call.get("function", call)
+    return {
+        "name": function["name"],
+        "arguments": function.get("arguments", {}),
+    }
+
+
+def continue_conversation(messages, assistant_message, call, observation):
+    messages.append(assistant_message)
+    call_id = call.get("id", f"call_{len(messages)}")
+    tool_name = normalize_call(call)["name"]
+
+    if observation["role"] == "tool":
+        messages.append({
+            "role": "tool",
+            "name": observation["name"],
+            "tool_call_id": call_id,
+            "content": json.dumps(observation["content"], ensure_ascii=False),
+        })
+        return
+
+    messages.extend([
+        {
+            "role": "tool",
+            "tool_call_id": call_id,
+            "name": tool_name,
+            "content": json.dumps(
+                observation["tool_result"], ensure_ascii=False
+            ),
+        },
+        {"role": "user", "content": observation["content"]},
+    ])
+
+
+class TransformersBackend:
+    def __init__(self, model_path, max_new_tokens, device):
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        self.torch = torch
+        self.max_new_tokens = max_new_tokens
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            dtype="auto",
+            device_map=device,
+        )
+        self.model.eval()
+
+    def generate(self, messages):
+        inputs = self.tokenizer.apply_chat_template(
+            messages,
+            tools=TOOLS,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(self.model.device)
+        input_length = inputs["input_ids"].shape[-1]
+
+        with self.torch.inference_mode():
+            output = self.model.generate(
+                **inputs,
+                do_sample=False,
+                max_new_tokens=self.max_new_tokens,
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
+
+        generated_ids = output[0, input_length:]
+        parsed = self.tokenizer.parse_response(generated_ids, tools=TOOLS)
+        calls = parsed.get("tool_calls") or []
+        usage = {
+            "input_tokens": input_length,
+            "output_tokens": len(generated_ids),
+            "total_tokens": input_length + len(generated_ids),
+        }
+        return parsed, calls, usage
+
+
+class VLLMBackend:
+    def __init__(self, model, base_url, api_key, max_new_tokens):
+        from openai import OpenAI
+
+        self.model = model
+        self.max_new_tokens = max_new_tokens
+        self.client = OpenAI(base_url=base_url, api_key=api_key)
+
+    def generate(self, messages):
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            tools=chat_tools(),
+            tool_choice="auto",
+            parallel_tool_calls=False,
+            temperature=0,
+            max_tokens=self.max_new_tokens,
+        )
+        message = response.choices[0].message
+        assistant_message = message.model_dump(exclude_none=True)
+        calls = [call.model_dump(exclude_none=True) for call in message.tool_calls or []]
+        usage = {
+            "input_tokens": response.usage.prompt_tokens,
+            "output_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens,
+        }
+        return assistant_message, calls, usage
+
+
+def run_episode(backend, row, prompt, max_steps):
+    scenario = row["scenario"]
+    user_request = row["messages"][0]["content"]
+    env = SupplyChainEnvironment(scenario, user_request)
+    env.reset()
+    messages = [
+        {"role": "system", "content": prompt},
+        {"role": "user", "content": user_request},
+    ]
+    trace = []
+    usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    started = time.perf_counter()
+
+    for step_number in range(1, max_steps + 1):
+        output_error = None
+        try:
+            assistant_message, calls, step_usage = backend.generate(messages)
+            for key in usage:
+                usage[key] += step_usage[key]
+            if len(calls) != 1:
+                output_error = (
+                    f"Model produced {len(calls)} tool calls; expected exactly one"
+                )
+                raise ValueError(output_error)
+
+            call = calls[0]
+            action = normalize_call(call)
+            observation, reward, done, info = env.step(action)
+            trace.append({
+                "step": step_number,
+                "action": action,
+                "reward": reward,
+                "state": env.state,
+            })
+        except Exception as error:
+            output_error = output_error or f"Inference error: {error}"
+            _, _, done, info = env.step(
+                {"name": "invalid_model_output", "arguments": {}}
+            )
+            trace.append({"step": step_number, "error": output_error})
+
+        if done:
+            return episode_result(
+                scenario, info, step_number, started, usage, trace, output_error
+            )
+
+        continue_conversation(messages, assistant_message, call, observation)
+
+    _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
+    return episode_result(
+        scenario,
+        info,
+        max_steps,
+        started,
+        usage,
+        trace,
+        "Maximum steps reached",
+    )
+
+
+def resolve_model_path(model):
+    local_path = PROJECT_ROOT / model
+    return str(local_path) if local_path.exists() else model
+
+
+@hydra.main(config_path="../../config", config_name="eval", version_base=None)
+def main(args):
+    if args.backend not in {"transformers", "vllm"}:
+        raise ValueError("backend must be 'transformers' or 'vllm'")
+
+    model = resolve_model_path(args.model)
+    output_root = PROJECT_ROOT / args.output_root
+
+    if args.backend == "transformers":
+        backend = TransformersBackend(model, args.max_new_tokens, args.device)
+    else:
+        backend = VLLMBackend(
+            args.model, args.base_url, args.api_key, args.max_new_tokens
+        )
+
+    run_directory = create_run_directory(output_root)
+    rows = generate(args.episodes, "evaluation", args.seed)
+    results = []
+    for index, row in enumerate(rows, 1):
+        result = run_episode(backend, row, DEFAULT_PROMPT, args.max_steps)
+        results.append(result)
+        print(
+            f"[{index}/{args.episodes}] {result['kind']}: "
+            f"{'PASS' if result['success'] else 'FAIL'}"
+        )
+
+    config = {
+        **OmegaConf.to_container(args, resolve=True),
+        "prompt": DEFAULT_PROMPT,
+        "tools": TOOLS,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_config(run_directory, config)
+    summary = save_results(run_directory, results)
+    print(f"Saved evaluation run to {run_directory}")
+    print(json.dumps(summary, indent=2))
+
+
+if __name__ == "__main__":
+    main()

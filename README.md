@@ -287,7 +287,7 @@ Keep every conversation intact during training. For assistant-only loss, train o
 
 ## Evaluate an existing model and prompt
 
-[`evaluation/evaluate_openai.py`](evaluation/evaluate_openai.py) runs an OpenAI model online against freshly generated hidden scenarios. It does not show the model the scenario object or generated target conversation. For every episode it:
+[`src/evaluation/evaluate_openai.py`](src/evaluation/evaluate_openai.py) runs an OpenAI model online against freshly generated hidden scenarios. It does not show the model the scenario object or generated target conversation. For every episode it:
 
 1. Sends the initial user request, prompt, and tool schemas to the model.
 2. Executes the model's function call through `SupplyChainEnvironment.step()`.
@@ -304,7 +304,7 @@ OPENAI_API_KEY=your-key
 The evaluator calls `load_dotenv()` before creating the OpenAI client. Existing process environment variables take precedence over values in `.env`. Then try GPT-5.4 nano with reasoning effort `none`:
 
 ```bash
-.venv/bin/python -m evaluation.evaluate_openai \
+.venv/bin/python -m src.evaluation.evaluate_openai \
   --model gpt-5.4-nano \
   --reasoning-effort none \
   --episodes 20
@@ -324,3 +324,41 @@ data/evals/eval-0001/
 `config.json` records the model, reasoning effort, prompt, tool schemas, seed, episode count, step limit, and UTC creation time. `results.jsonl` contains one complete trace per episode. `results.json` contains the same episode results together with overall and per-trajectory summaries, token totals, and latency. Use the same seed and episode count when comparing prompts or models.
 
 Use `--output-root` only when the numbered runs should be stored somewhere other than `data/evals/`.
+
+### Evaluate a local model
+
+[`src/evaluation/evaluate_local.py`](src/evaluation/evaluate_local.py) supports two local inference backends configured through [`config/eval.yaml`](config/eval.yaml):
+
+- `transformers` loads a model directly in the evaluation process. Use it for CPU runs, debugging, and small evaluations.
+- `vllm` calls an already-running OpenAI-compatible vLLM server. Use it for higher-throughput GPU evaluation.
+
+Set the defaults in `config/eval.yaml` or override them with Hydra. To evaluate a saved model directly:
+
+```bash
+.venv/bin/python -m src.evaluation.evaluate_local \
+  backend=transformers \
+  model=outputs/breezy-surf-7/final_model \
+  device=auto \
+  episodes=20
+```
+
+For vLLM, first serve the saved model. The tool-call parser must match the model family:
+
+```bash
+vllm serve outputs/breezy-surf-7/final_model \
+  --served-model-name supply-chain \
+  --enable-auto-tool-choice \
+  --tool-call-parser <parser-for-model>
+```
+
+Then run the evaluator against that server:
+
+```bash
+.venv/bin/python -m src.evaluation.evaluate_local \
+  backend=vllm \
+  model=supply-chain \
+  base_url=http://localhost:8000/v1 \
+  episodes=100
+```
+
+Both backends execute the same multi-turn environment and write the same `config.json`, `results.json`, and `results.jsonl` files under the next `data/evals/eval-NNNN/` directory. Direct Transformers inference uses the tokenizer's chat and response templates to format tools and parse generated calls. A model without tool-aware templates fails the episode explicitly instead of silently treating free text as a valid action.

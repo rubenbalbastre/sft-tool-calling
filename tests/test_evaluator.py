@@ -4,7 +4,9 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from src.evaluation.evaluate_openai import create_run_directory, run_episode, summarize
+from src.evaluation.common import create_run_directory, summarize
+from src.evaluation.evaluate_openai import run_episode
+from src.evaluation.evaluate_local import run_episode as run_local_episode
 from src.environment.tools import TOOLS
 
 class FakeResponses:
@@ -25,6 +27,24 @@ class FakeResponses:
         )
         usage = SimpleNamespace(input_tokens=10, output_tokens=5, total_tokens=15)
         return SimpleNamespace(output=[call], usage=usage, id=f"response_{self.index}")
+
+
+class FakeLocalBackend:
+    def __init__(self, calls):
+        self.calls = iter(calls)
+        self.messages = []
+
+    def generate(self, messages):
+        self.messages.append(messages.copy())
+        name, arguments = next(self.calls)
+        call = {
+            "id": f"call_{len(self.messages)}",
+            "type": "function",
+            "function": {"name": name, "arguments": arguments},
+        }
+        assistant = {"role": "assistant", "content": "", "tool_calls": [call]}
+        usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+        return assistant, [call], usage
 
 
 class EvaluatorTest(unittest.TestCase):
@@ -78,6 +98,45 @@ class EvaluatorTest(unittest.TestCase):
             request["reasoning"] == {"effort": "none"}
             for request in responses.requests
         ))
+
+    def test_ambiguous_local_rollout(self):
+        scenario = {
+            "scenario_id": "test_local",
+            "kind": "ambiguous",
+            "language": "English",
+            "difficulty": "simple",
+            "material_id": "MAT-1842",
+            "quantity": 350,
+            "unit": "kg",
+            "required_date": "2026-10-15",
+            "city": "Valencia",
+            "explicit_plant_id": None,
+            "selected_plant_id": "ES-08",
+        }
+        row = {
+            "scenario": scenario,
+            "messages": [{"role": "user", "content": "Can Valencia supply it?"}],
+        }
+        backend = FakeLocalBackend([
+            ("check_location", {"city": "Valencia"}),
+            ("ask_for_clarification", {
+                "candidate_plant_ids": ["ES-03", "ES-08"]
+            }),
+            ("can_fulfill_material_request", {
+                "material_id": "MAT-1842",
+                "quantity": 350,
+                "unit": "kg",
+                "required_date": "2026-10-15",
+                "plant_id": "ES-08",
+            }),
+        ])
+
+        result = run_local_episode(backend, row, "prompt", 4)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["steps"], 3)
+        self.assertEqual(result["usage"]["total_tokens"], 45)
+        self.assertEqual(backend.messages[2][-1]["role"], "user")
 
 
 if __name__ == "__main__":
