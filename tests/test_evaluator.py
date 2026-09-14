@@ -1,3 +1,4 @@
+import asyncio
 import json
 import tempfile
 import unittest
@@ -6,7 +7,10 @@ from types import SimpleNamespace
 
 from src.evaluation.common import create_run_directory, summarize
 from src.evaluation.evaluate_openai import run_episode
-from src.evaluation.evaluate_local import run_episode as run_local_episode
+from src.evaluation.evaluate_local import (
+    parse_transformers_response,
+    run_episode as run_local_episode,
+)
 from src.environment.tools import TOOLS
 
 class FakeResponses:
@@ -34,7 +38,7 @@ class FakeLocalBackend:
         self.calls = iter(calls)
         self.messages = []
 
-    def generate(self, messages):
+    async def generate(self, messages):
         self.messages.append(messages.copy())
         name, arguments = next(self.calls)
         call = {
@@ -47,7 +51,31 @@ class FakeLocalBackend:
         return assistant, [call], usage
 
 
+class SmolLM3TokenizerWithoutResponseTemplate:
+    def parse_response(self, generated_ids, tools):
+        raise AttributeError(
+            "This tokenizer does not have a `response_template` for parsing chat responses!"
+        )
+
+    def decode(self, generated_ids, skip_special_tokens):
+        return generated_ids
+
+
 class EvaluatorTest(unittest.TestCase):
+    def test_smolllm3_xml_tool_call_parser(self):
+        output = (
+            '<tool_call>{"name":"check_location",'
+            '"arguments":{"city":"Bilbao"}}</tool_call>'
+        )
+        parsed = parse_transformers_response(
+            SmolLM3TokenizerWithoutResponseTemplate(), output
+        )
+
+        self.assertEqual(
+            parsed["tool_calls"][0]["function"],
+            {"name": "check_location", "arguments": {"city": "Bilbao"}},
+        )
+
     def test_run_directories_are_numbered(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -131,7 +159,7 @@ class EvaluatorTest(unittest.TestCase):
             }),
         ])
 
-        result = run_local_episode(backend, row, "prompt", 4)
+        result = asyncio.run(run_local_episode(backend, row, "prompt", 4))
 
         self.assertTrue(result["success"])
         self.assertEqual(result["steps"], 3)

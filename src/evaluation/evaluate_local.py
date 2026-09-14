@@ -1,6 +1,8 @@
 """Evaluate a local model with Transformers or a running vLLM server."""
 
+import asyncio
 import json
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -24,6 +26,10 @@ from src.evaluation.common import (
     save_config,
     save_results,
 )
+from src.evaluation.vllm import VLLMServer
+
+
+TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
 
 def chat_tools():
     """Convert Responses API tool schemas to Chat Completions schemas."""
@@ -46,6 +52,36 @@ def normalize_call(call):
         "name": function["name"],
         "arguments": function.get("arguments", {}),
     }
+
+
+def parse_transformers_response(tokenizer, generated_ids):
+    """Parse with the tokenizer, falling back to SmolLM3 XML tool calls."""
+    try:
+        return tokenizer.parse_response(generated_ids, tools=TOOLS)
+    except AttributeError as error:
+        if "response_template" not in str(error):
+            raise
+
+    text = (
+        generated_ids
+        if isinstance(generated_ids, str)
+        else tokenizer.decode(generated_ids, skip_special_tokens=False)
+    )
+    matches = TOOL_CALL_PATTERN.findall(text)
+    calls = []
+    for index, match in enumerate(matches, 1):
+        payload = json.loads(match)
+        calls.append({
+            "id": f"call_{index}",
+            "type": "function",
+            "function": {
+                "name": payload["name"],
+                "arguments": payload.get("arguments", {}),
+            },
+        })
+
+    content = TOOL_CALL_PATTERN.sub("", text).strip()
+    return {"role": "assistant", "content": content, "tool_calls": calls}
 
 
 def continue_conversation(messages, assistant_message, call, observation):
@@ -76,12 +112,13 @@ def continue_conversation(messages, assistant_message, call, observation):
 
 
 class TransformersBackend:
-    def __init__(self, model_path, max_new_tokens, device):
+    def __init__(self, model_path, max_new_tokens, device, enable_thinking):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         self.torch = torch
         self.max_new_tokens = max_new_tokens
+        self.enable_thinking = enable_thinking
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -90,10 +127,11 @@ class TransformersBackend:
         )
         self.model.eval()
 
-    def generate(self, messages):
+    async def generate(self, messages):
         inputs = self.tokenizer.apply_chat_template(
             messages,
             tools=TOOLS,
+            enable_thinking=self.enable_thinking,
             add_generation_prompt=True,
             tokenize=True,
             return_dict=True,
@@ -110,7 +148,7 @@ class TransformersBackend:
             )
 
         generated_ids = output[0, input_length:]
-        parsed = self.tokenizer.parse_response(generated_ids, tools=TOOLS)
+        parsed = parse_transformers_response(self.tokenizer, generated_ids)
         calls = parsed.get("tool_calls") or []
         usage = {
             "input_tokens": input_length,
@@ -121,15 +159,18 @@ class TransformersBackend:
 
 
 class VLLMBackend:
-    def __init__(self, model, base_url, api_key, max_new_tokens):
-        from openai import OpenAI
+    def __init__(
+        self, model, base_url, api_key, max_new_tokens, enable_thinking
+    ):
+        from openai import AsyncOpenAI
 
         self.model = model
         self.max_new_tokens = max_new_tokens
-        self.client = OpenAI(base_url=base_url, api_key=api_key)
+        self.enable_thinking = enable_thinking
+        self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
-    def generate(self, messages):
-        response = self.client.chat.completions.create(
+    async def generate(self, messages):
+        response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
             tools=chat_tools(),
@@ -137,6 +178,11 @@ class VLLMBackend:
             parallel_tool_calls=False,
             temperature=0,
             max_tokens=self.max_new_tokens,
+            extra_body={
+                "chat_template_kwargs": {
+                    "enable_thinking": self.enable_thinking,
+                }
+            },
         )
         message = response.choices[0].message
         assistant_message = message.model_dump(exclude_none=True)
@@ -149,7 +195,10 @@ class VLLMBackend:
         return assistant_message, calls, usage
 
 
-def run_episode(backend, row, prompt, max_steps):
+async def run_episode(
+    backend, row, prompt, max_steps, inference_semaphore=None
+):
+    """Run one ordered episode while allowing other episodes to make progress."""
     scenario = row["scenario"]
     user_request = row["messages"][0]["content"]
     env = SupplyChainEnvironment(scenario, user_request)
@@ -165,7 +214,13 @@ def run_episode(backend, row, prompt, max_steps):
     for step_number in range(1, max_steps + 1):
         output_error = None
         try:
-            assistant_message, calls, step_usage = backend.generate(messages)
+            if inference_semaphore:
+                async with inference_semaphore:
+                    assistant_message, calls, step_usage = await backend.generate(
+                        messages
+                    )
+            else:
+                assistant_message, calls, step_usage = await backend.generate(messages)
             for key in usage:
                 usage[key] += step_usage[key]
             if len(calls) != 1:
@@ -209,6 +264,15 @@ def run_episode(backend, row, prompt, max_steps):
     )
 
 
+async def run_concurrent_episodes(backend, rows, prompt, max_steps, concurrency):
+    """Keep up to `concurrency` model inference requests active at once."""
+    semaphore = asyncio.Semaphore(concurrency)
+    return await asyncio.gather(*(
+        run_episode(backend, row, prompt, max_steps, semaphore)
+        for row in rows
+    ))
+
+
 def resolve_model_path(model):
     local_path = PROJECT_ROOT / model
     return str(local_path) if local_path.exists() else model
@@ -221,24 +285,7 @@ def main(args):
 
     model = resolve_model_path(args.model)
     output_root = PROJECT_ROOT / args.output_root
-
-    if args.backend == "transformers":
-        backend = TransformersBackend(model, args.max_new_tokens, args.device)
-    else:
-        backend = VLLMBackend(
-            args.model, args.base_url, args.api_key, args.max_new_tokens
-        )
-
     run_directory = create_run_directory(output_root)
-    rows = generate(args.episodes, "evaluation", args.seed)
-    results = []
-    for index, row in enumerate(rows, 1):
-        result = run_episode(backend, row, DEFAULT_PROMPT, args.max_steps)
-        results.append(result)
-        print(
-            f"[{index}/{args.episodes}] {result['kind']}: "
-            f"{'PASS' if result['success'] else 'FAIL'}"
-        )
 
     config = {
         **OmegaConf.to_container(args, resolve=True),
@@ -247,9 +294,62 @@ def main(args):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     save_config(run_directory, config)
-    summary = save_results(run_directory, results)
-    print(f"Saved evaluation run to {run_directory}")
-    print(json.dumps(summary, indent=2))
+
+    server = None
+
+    if args.backend == "transformers":
+        backend = TransformersBackend(
+            model,
+            args.max_new_tokens,
+            args.device,
+            args.enable_thinking,
+        )
+    else:
+        server = VLLMServer(
+            model=model,
+            config_path=PROJECT_ROOT / args.vllm_server_config,
+            base_url=args.base_url,
+            timeout=args.vllm_startup_timeout,
+            log_path=run_directory / "vllm.log",
+        )
+        server.start()
+        try:
+            backend = VLLMBackend(
+                args.served_model_name,
+                args.base_url,
+                args.api_key,
+                args.max_new_tokens,
+                args.enable_thinking,
+            )
+        except Exception:
+            server.stop()
+            raise
+
+    rows = generate(args.episodes, "evaluation", args.seed)
+    try:
+        concurrency = args.concurrency if args.backend == "vllm" else 1
+        if concurrency < 1:
+            raise ValueError("concurrency must be at least 1")
+        results = asyncio.run(run_concurrent_episodes(
+            backend,
+            rows,
+            DEFAULT_PROMPT,
+            args.max_steps,
+            concurrency,
+        ))
+
+        for index, result in enumerate(results, 1):
+            print(
+                f"[{index}/{args.episodes}] {result['kind']}: "
+                f"{'PASS' if result['success'] else 'FAIL'}"
+            )
+
+        summary = save_results(run_directory, results)
+        print(f"Saved evaluation run to {run_directory}")
+        print(json.dumps(summary, indent=2))
+    finally:
+        if server:
+            server.stop()
 
 
 if __name__ == "__main__":

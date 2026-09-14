@@ -342,23 +342,31 @@ Set the defaults in `config/eval.yaml` or override them with Hydra. To evaluate 
   episodes=20
 ```
 
-For vLLM, first serve the saved model. The tool-call parser must match the model family:
-
-```bash
-vllm serve outputs/breezy-surf-7/final_model \
-  --served-model-name supply-chain \
-  --enable-auto-tool-choice \
-  --tool-call-parser <parser-for-model>
-```
-
-Then run the evaluator against that server:
+For vLLM, the evaluator starts and stops the server automatically by default.
+[`config/vllm.yaml`](config/vllm.yaml) enables automatic tool choice and
+selects the `hermes` parser explicitly:
 
 ```bash
 .venv/bin/python -m src.evaluation.evaluate_local \
   backend=vllm \
-  model=supply-chain \
-  base_url=http://localhost:8000/v1 \
+  model=outputs/breezy-surf-7/final_model \
   episodes=100
 ```
 
+Selecting `backend=vllm` always manages the local server: it starts vLLM,
+waits for its health endpoint, performs the evaluation, and shuts it down. The
+server output is saved as `vllm.log` in the numbered evaluation directory.
+The evaluator submits all episodes concurrently while allowing at most
+`concurrency` simultaneous model requests (default: `8`). The permit is held
+only during inference, so another episode can use the GPU while an earlier one
+processes a tool result. Turns remain ordered inside each episode. The
+Transformers backend always uses concurrency `1` because it performs inference
+directly in the evaluator process.
+
 Both backends execute the same multi-turn environment and write the same `config.json`, `results.json`, and `results.jsonl` files under the next `data/evals/eval-NNNN/` directory. Direct Transformers inference uses the tokenizer's chat and response templates to format tools and parse generated calls. A model without tool-aware templates fails the episode explicitly instead of silently treating free text as a valid action.
+
+SmolLM3 supports vLLM's `hermes` tool-call parser. The evaluator sets
+`enable_thinking: false` by default in `config/eval.yaml`. For direct
+Transformers inference this is passed to `apply_chat_template`; for vLLM it is
+sent as `chat_template_kwargs`. Set it to `true` when reasoning traces are
+desired, at the cost of additional output tokens and latency.

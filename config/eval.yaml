@@ -5,6 +5,8 @@ episodes: 5
 seed: 1234
 max_steps: 10
 max_new_tokens: 256
+enable_thinking: false
+concurrency: 8 # Maximum simultaneous vLLM inference requests.
 
 # Used by the direct Transformers backend.
 device: "auto"
@@ -12,5 +14,8 @@ device: "auto"
 # Used by the OpenAI-compatible vLLM server backend.
 base_url: "http://localhost:8000/v1"
 api_key: "local"
+served_model_name: "supply-chain"
+vllm_server_config: "config/vllm.yaml"
+vllm_startup_timeout: 300
 
 output_root: "data/evals"
