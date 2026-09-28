@@ -299,6 +299,12 @@ Load that particular Hub configuration with `load_dataset("your-account/supply-c
 
 Keep every conversation intact during training. For assistant-only loss, train on assistant tool calls and assistant responses while masking user messages and tool results. Verify the pilot end to end before producing the larger dataset.
 
+SFT early stopping is configured under `train.early_stopping` in
+[`config/train_sft.yaml`](config/train_sft.yaml). It monitors `eval_loss` by
+default and restores the best checkpoint before `final_model/` is written.
+`patience` counts evaluation calls, not epochs. When using step-based evaluation,
+keep `checkpointing.save_steps` aligned with `eval_steps`.
+
 ## Evaluate an existing model and prompt
 
 [`src/evaluation/evaluate_openai.py`](src/evaluation/evaluate_openai.py) runs an OpenAI model online against freshly generated hidden scenarios. It does not show the model the scenario object or generated target conversation. For every episode it:
