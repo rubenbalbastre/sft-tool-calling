@@ -1,4 +1,4 @@
-"""Stateful, deterministically verifiable environment for RLVR rollouts."""
+"""Stateful environment for deterministic tool-trajectory verification."""
 
 import json
 
