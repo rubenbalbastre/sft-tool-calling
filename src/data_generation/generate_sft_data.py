@@ -1,10 +1,8 @@
 """Small deterministic generator for multilingual tool-calling conversations."""
 
-import argparse
 import json
 import random
 from datetime import date, timedelta
-from pathlib import Path
 
 from src.environment.tools import (
     MASTER_DATA,
@@ -284,17 +282,34 @@ def generate(count, split, seed):
     return rows
 
 
-def to_dataset_row(row):
-    """Flatten scenario metadata while preserving the complete conversation."""
+def _normalise_messages(messages):
+    """Give every split the same Arrow schema for chat messages."""
+    return [
+        {
+            "role": message["role"],
+            "content": message.get("content", ""),
+            "tool_calls": message.get("tool_calls", []),
+            "name": message.get("name", ""),
+            "tool_call_id": message.get("tool_call_id", ""),
+        }
+        for message in messages
+    ]
+
+
+def to_pipeline_row(row, stage):
+    """Create an SFT example or a prompt-only online-rollout example."""
     scenario = row["scenario"]
+    messages = row["messages"] if stage == "sft" else row["messages"][:1]
     tool_sequence = [
-        call["function"]["name"]
+        tool_call["function"]["name"]
         for message in row["messages"]
-        for call in message.get("tool_calls", [])
+        for tool_call in message.get("tool_calls", [])
     ]
     return {
-        "messages": row["messages"],
+        "messages": _normalise_messages(messages),
+        "scenario_json": json.dumps(scenario, ensure_ascii=False, sort_keys=True),
         "scenario_id": scenario["scenario_id"],
+        "stage": stage,
         "language": scenario["language"],
         "trajectory_type": scenario["kind"],
         "difficulty": scenario["difficulty"],
@@ -302,46 +317,57 @@ def to_dataset_row(row):
     }
 
 
-def build_dataset(train_size, validation_size, test_size, seed):
-    """Create a Hugging Face DatasetDict with deterministic split seeds."""
+def build_pipeline_dataset(split_sizes, seed):
+    """Build the five splits used by the SFT -> on-policy pipeline."""
+    from datasets import Dataset, DatasetDict, Features, List, Value
 
-    from datasets import Dataset, DatasetDict
+    expected_splits = (
+        "sft_train",
+        "sft_validation",
+        "opd_train",
+        "opd_validation",
+        "test",
+    )
+    unknown = set(split_sizes) - set(expected_splits)
+    missing = set(expected_splits) - set(split_sizes)
+    if unknown or missing:
+        raise ValueError(
+            f"split_sizes must contain exactly {expected_splits}; "
+            f"missing={sorted(missing)}, unknown={sorted(unknown)}"
+        )
 
-    split_sizes = {
-        "train": train_size,
-        "validation": validation_size,
-        "test": test_size,
-    }
-    return DatasetDict({
-        split: Dataset.from_list([
-            to_dataset_row(row)
-            for row in generate(size, split, seed + offset)
-        ])
-        for offset, (split, size) in enumerate(split_sizes.items(), start=1)
+    features = Features({
+        "messages": List({
+            "role": Value("string"),
+            "content": Value("string"),
+            "tool_calls": List({
+                "id": Value("string"),
+                "type": Value("string"),
+                "function": {
+                    "name": Value("string"),
+                    "arguments": Value("string"),
+                },
+            }),
+            "name": Value("string"),
+            "tool_call_id": Value("string"),
+        }),
+        "scenario_json": Value("string"),
+        "scenario_id": Value("string"),
+        "stage": Value("string"),
+        "language": Value("string"),
+        "trajectory_type": Value("string"),
+        "difficulty": Value("string"),
+        "tool_sequence": List(Value("string")),
     })
 
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--train-size", type=int, default=40)
-    parser.add_argument("--validation-size", type=int, default=5)
-    parser.add_argument("--test-size", type=int, default=5)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--output-dir", type=Path, default=Path("data/pilot/hf_dataset")
-    )
-    args = parser.parse_args()
-
-    dataset = build_dataset(
-        args.train_size,
-        args.validation_size,
-        args.test_size,
-        args.seed,
-    )
-    dataset.save_to_disk(args.output_dir)
-    print(dataset)
-    print(f"Saved Hugging Face dataset to {args.output_dir}")
-
-
-if __name__ == "__main__":
-    main()
+    datasets = {}
+    for offset, split in enumerate(expected_splits, start=1):
+        stage = "sft" if split.startswith("sft_") else (
+            "opd" if split.startswith("opd_") else "evaluation"
+        )
+        rows = generate(int(split_sizes[split]), split, seed + offset)
+        datasets[split] = Dataset.from_list(
+            [to_pipeline_row(row, stage) for row in rows],
+            features=features,
+        )
+    return DatasetDict(datasets)

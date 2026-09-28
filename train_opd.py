@@ -64,8 +64,8 @@ def main(args):
         processing_class=tokenizer,
         tools=[check_location, ask_for_clarification, request_new_location, can_fulfill_material_request],
         args=config,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["validation"],
+        train_dataset=dataset[args.dataset.train_split],
+        eval_dataset=dataset[args.dataset.validation_split],
     )
 
     print("Trainer initialized successfully.")

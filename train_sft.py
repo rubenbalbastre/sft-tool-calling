@@ -60,8 +60,8 @@ def main(args):
         model=model,
         processing_class=tokenizer,
         args=config,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["validation"],
+        train_dataset=dataset[args.dataset.train_split],
+        eval_dataset=dataset[args.dataset.validation_split],
     )
     print("Trainer initialized successfully.")
 
