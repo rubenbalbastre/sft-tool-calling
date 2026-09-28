@@ -1,0 +1,41 @@
+dataset:
+  file: "data/pipeline/hf_dataset/"
+  train_split: "opd_train"
+  validation_split: "opd_validation"
+
+train:
+  style: "opd"
+  seed: 42
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct" # "HuggingFaceTB/SmolLM3-3B"
+  gradient_accumulation_steps: 1 # 4
+  per_device_train_batch_size: 2 # 16
+  teacher_model: "HuggingFaceTB/SmolLM2-360M-Instruct" # "HuggingFaceTB/SmolLM3-3B"
+  # training
+  learning_rate: 2e-5
+  max_steps: 5 # 1000
+  # generation
+  temperature: 1.0
+  top_p: 10.0
+  top_k: 0
+  max_completion_length: 256
+  max_tool_calling_iterations: 5
+  # precision
+  use_cpu: true # false
+  bf16: false # true
+  fp16: false # true
+  # logs
+  logging_steps: 1
+  log_completions: true
+  num_completions_to_print: 0
+  # evaluation
+  per_device_eval_batch_size: 2 # 16
+  eval_strategy: "steps"
+  eval_steps: 2
+  # checkpoints
+  checkpointing:
+    save_strategy: "steps"
+    save_steps: 500
+    save_total_limit: 3
+  final_model:
+    save: true
+    output_dir: "outputs"

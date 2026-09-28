@@ -1,0 +1,16 @@
+seed: 42
+output_dir: "data/pipeline/hf_dataset"
+
+splits:
+  sft_train: 400
+  sft_validation: 50
+  opd_train: 200
+  opd_validation: 50
+  test: 50
+
+hub:
+  push: false
+  repo_id: rubenbalbastre/supply-chain-tool-calling # e.g. "your-account/supply-chain-tool-calling"
+  config_name: "default"
+  private: false
+  token_env: "HF_TOKEN"

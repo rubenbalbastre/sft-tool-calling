@@ -1,7 +1,6 @@
+from trl import DistillationTrainer, DistillationConfig
+from transformers import AutoModelForCausalLM, set_seed
 from datasets import load_from_disk
-from trl import SFTTrainer, SFTConfig
-from transformers import set_seed
-from dotenv import load_dotenv
 from pathlib import Path
 from omegaconf import OmegaConf
 import hydra
@@ -11,10 +10,11 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
+from src.environment.tools import check_location, ask_for_clarification, request_new_location, can_fulfill_material_request
 from src.training.setup import load_model_and_tokenizer, setup
 
 
-@hydra.main(config_path="config", config_name="train_sft", version_base=None)
+@hydra.main(config_path="config", config_name="train_opd", version_base=None)
 def main(args):
 
     load_dotenv(PROJECT_ROOT / ".env")
@@ -29,40 +29,45 @@ def main(args):
     OmegaConf.save(args, config_dir / "train.yaml")
 
     model, tokenizer = load_model_and_tokenizer(args)
+    teacher_model = AutoModelForCausalLM.from_pretrained(args.train.teacher_model)
     print("Model and tokenizer loaded successfully.")
 
     dataset_path = PROJECT_ROOT / args.dataset.file
     dataset = load_from_disk(str(dataset_path))
     print("Datasets loaded successfully.")
 
-    config = SFTConfig(
-        seed=args.train.seed,
-        data_seed=args.train.seed,
+    config = DistillationConfig(
         per_device_train_batch_size=args.train.per_device_train_batch_size,
-        gradient_accumulation_steps=args.train.gradient_accumulation_steps,
         learning_rate=args.train.learning_rate,
         max_steps=args.train.max_steps,
-        per_device_eval_batch_size=args.train.per_device_eval_batch_size,
-        max_length=args.train.max_seq_length,
+        gradient_accumulation_steps=args.train.gradient_accumulation_steps,
+        # generation
+        temperature=args.train.temperature,
+        top_p=args.train.top_p,
+        top_k=args.train.top_k,
+        max_completion_length=args.train.max_completion_length,
+        max_tool_calling_iterations=args.train.max_tool_calling_iterations,
+        # precision
+        use_cpu=args.train.use_cpu,
         bf16=args.train.bf16,
         fp16=args.train.fp16,
-        use_cpu=args.train.use_cpu,
-        logging_steps=args.train.logging_steps,
-        eval_strategy=args.train.eval_strategy,
-        eval_steps=args.train.eval_steps,
-        save_strategy=args.train.checkpointing.save_strategy,
-        save_steps=args.train.checkpointing.save_steps,
-        save_total_limit=args.train.checkpointing.save_total_limit,
-        output_dir=str(checkpoints_dir),
+        # logging
         report_to=report_to,
+        logging_steps=args.train.logging_steps,
+        log_completions=args.train.log_completions,
+        num_completions_to_print=args.train.num_completions_to_print,
     )
-    trainer = SFTTrainer(
+
+    trainer = DistillationTrainer(
         model=model,
+        teacher_model=teacher_model,
         processing_class=tokenizer,
+        tools=[check_location, ask_for_clarification, request_new_location, can_fulfill_material_request],
         args=config,
         train_dataset=dataset[args.dataset.train_split],
         eval_dataset=dataset[args.dataset.validation_split],
     )
+
     print("Trainer initialized successfully.")
 
     trainer.train()

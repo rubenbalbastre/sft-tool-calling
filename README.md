@@ -10,10 +10,12 @@ src/environment/
 └── tools.py              # Deterministic task tools
 
 src/data_generation/
-└── generate_sft_data.py  # Scenarios, conversations, and validation
+└── generate_sft_data.py  # Scenarios, conversations, validation, and dataset assembly
+
+generate_data.py          # Hydra dataset-generation entry point
 
 data/
-└── pilot/hf_dataset/     # Saved Hugging Face DatasetDict
+└── pipeline/hf_dataset/  # Saved Hugging Face DatasetDict
 ```
 
 The separation is intentional. `src/environment/` defines what actions mean and what results they produce. `src/data_generation/` decides which situations to sample and turns them into complete training conversations.
@@ -222,36 +224,46 @@ expect_fulfillment
 
 Correct intermediate transitions return their configured reward and the next observation. A complete valid trajectory receives the remaining success reward. A wrong tool, wrong arguments, invented plant, premature fulfillment, or invalid transition terminates with `failure_reward` and a reason in `info`.
 
-## SFT data generation
+## Pipeline data generation
 
-Generate the small pilot from the repository root:
+Generate the dataset from the repository root:
 
 ```bash
-python3 -m src.data_generation.generate_sft_data
+python generate_data.py
 ```
 
-The default configuration saves a native Hugging Face `DatasetDict` under `data/pilot/hf_dataset/` with `train`, `validation`, and `test` splits. Larger runs can be generated explicitly:
+[`config/data_generation.yaml`](config/data_generation.yaml) controls the seed, local output directory, split sizes, and optional Hugging Face Hub upload. The default run saves a native Hugging Face `DatasetDict` under `data/pipeline/hf_dataset/` with five splits:
+
+- `sft_train` and `sft_validation` contain complete supervised trajectories;
+- `opd_train` and `opd_validation` contain only the initial user message and hidden scenario state for online rollouts;
+- `test` is held out and has the same prompt-only representation as OPD.
+
+Hydra overrides can create a smaller smoke-test dataset without editing the YAML:
 
 ```bash
-python3 -m src.data_generation.generate_sft_data \
-  --train-size 400 \
-  --validation-size 50 \
-  --test-size 50 \
-  --output-dir data/sanity_500/hf_dataset
+python generate_data.py \
+  splits.sft_train=40 \
+  splits.sft_validation=5 \
+  splits.opd_train=20 \
+  splits.opd_validation=5 \
+  splits.test=10 \
+  output_dir=data/pilot/hf_dataset
 ```
 
 Python owns the scenarios, IDs, routing decisions, tool results, user selections, and expected final arguments. The built-in multilingual `REQUESTS` collection contains 30 phrases per language: 10 simple, 10 medium, and 10 hard. Each scenario stores a seeded `request_variant`, making generation reproducible while exercising different phrasing. These templates are an offline verbalization mechanism and can later be replaced by a teacher LLM without changing environment behavior or target tool calls.
 
-Each row contains six columns:
+Every split uses the same schema:
 
-- `messages`: the complete Hugging Face/OpenAI-style conversation used for SFT;
+- `messages`: a complete trajectory for SFT, or the initial user prompt for OPD/test;
+- `scenario_json`: serialized hidden environment state used by online rollout and verification code;
 - `scenario_id`: a stable identifier for debugging;
+- `stage`: `sft`, `opd`, or `evaluation`;
 - `language`: the conversation language;
 - `trajectory_type`: the routing pattern;
 - `difficulty`: simple, medium, or hard;
 - `tool_sequence`: the expected ordered tool names.
 
-Training should consume only `messages`; the remaining lightweight metadata supports filtering and evaluation. Detailed hidden scenario state remains in the generation and RLVR environment rather than being published in the SFT dataset.
+Only `messages` is model input. In particular, `scenario_json` and `tool_sequence` are verifier metadata and must never be included in a model prompt.
 
 Tool arguments are JSON strings under `assistant.tool_calls[].function.arguments`. Tool results use `role: "tool"` and the corresponding `tool_call_id`.
 
@@ -263,9 +275,9 @@ Before scaling, render pilot conversations with the exact tokenizer revision use
 from datasets import load_from_disk
 from transformers import AutoTokenizer
 
-dataset = load_from_disk("data/pilot/hf_dataset")
+dataset = load_from_disk("data/pipeline/hf_dataset")
 tokenizer = AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM3-3B")
-row = dataset["train"][0]
+row = dataset["sft_train"][0]
 rendered = tokenizer.apply_chat_template(
     row["messages"],
     tools=YOUR_TOOL_SCHEMAS,
@@ -274,14 +286,16 @@ rendered = tokenizer.apply_chat_template(
 print(rendered)
 ```
 
-To share the saved dataset on the Hugging Face Hub:
+To publish directly to a named configuration on the Hugging Face Hub, set `hub.push`, `hub.repo_id`, and `hub.config_name`. The token is read from `HF_TOKEN` in the shell or `.env` by default:
 
-```python
-from datasets import load_from_disk
-
-dataset = load_from_disk("data/pilot/hf_dataset")
-dataset.push_to_hub("your-account/supply-chain-tool-calling")
+```bash
+python generate_data.py \
+  hub.push=true \
+  hub.repo_id=your-account/supply-chain-tool-calling \
+  hub.config_name=pipeline-v1
 ```
+
+Load that particular Hub configuration with `load_dataset("your-account/supply-chain-tool-calling", "pipeline-v1")`.
 
 Keep every conversation intact during training. For assistant-only loss, train on assistant tool calls and assistant responses while masking user messages and tool results. Verify the pilot end to end before producing the larger dataset.
 

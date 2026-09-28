@@ -74,8 +74,16 @@ TOOLS = [
 ]
 
 
-def check_location(city):
-    """Return every plant whose city matches the supplied city."""
+def check_location(city: str):
+    """
+    Return every plant whose city matches the supplied city.
+    
+    Args:
+        city (str): The name of the city to search for.
+    
+    Returns:
+        dict: A dictionary containing the matching plants.
+    """
     matches = [
         plant
         for plant in MASTER_DATA
@@ -84,8 +92,16 @@ def check_location(city):
     return {"matches": matches}
 
 
-def ask_for_clarification(candidate_plant_ids):
-    """Request that the user choose one of the candidate plants."""
+def ask_for_clarification(candidate_plant_ids: list[str]):
+    """
+    Request that the user choose one of the candidate plants.
+
+    Args:
+        candidate_plant_ids (list[str]): A list of candidate plant IDs.
+
+    Returns:
+        dict: A dictionary containing the clarification status and candidate plants.
+    """
     if len(candidate_plant_ids) < 2 or len(candidate_plant_ids) != len(
         set(candidate_plant_ids)
     ):
@@ -102,14 +118,34 @@ def ask_for_clarification(candidate_plant_ids):
 
 
 def request_new_location():
-    """Request a different city after a location lookup returns no records."""
+    """
+    Request a different city after a location lookup returns no records.
+    
+    Args:
+        None
+    
+    Returns:
+        dict: A dictionary indicating that a new location is requested.
+    """
     return {"status": "new_location_requested"}
 
 
 def can_fulfill_material_request(
     material_id, quantity, unit, required_date, plant_id
 ):
-    """Represent the fulfillment tool exposed by the task environment."""
+    """
+    Represent the fulfillment tool exposed by the task environment.
+    
+    Args:
+        material_id (str): The ID of the material to check.
+        quantity (float): The quantity of the material requested.
+        unit (str): The unit of measurement for the quantity.
+        required_date (str): The date by which the material is required.
+        plant_id (str): The ID of the plant to check for fulfillment.
+
+    Returns:
+        dict: A dictionary containing the material request details.
+    """
     return {
         "material_id": material_id,
         "quantity": quantity,
