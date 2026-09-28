@@ -1,12 +1,11 @@
 from datasets import load_from_disk
 from trl import SFTTrainer, SFTConfig
-from transformers import set_seed
+from transformers import EarlyStoppingCallback, set_seed
 from dotenv import load_dotenv
 from pathlib import Path
 from omegaconf import OmegaConf
 import hydra
 import wandb
-from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -53,15 +52,26 @@ def main(args):
         save_strategy=args.train.checkpointing.save_strategy,
         save_steps=args.train.checkpointing.save_steps,
         save_total_limit=args.train.checkpointing.save_total_limit,
+        load_best_model_at_end=args.train.early_stopping.enabled,
+        metric_for_best_model=args.train.early_stopping.metric,
+        greater_is_better=args.train.early_stopping.greater_is_better,
         output_dir=str(checkpoints_dir),
         report_to=report_to,
     )
+    callbacks = []
+    if args.train.early_stopping.enabled:
+        callbacks.append(EarlyStoppingCallback(
+            early_stopping_patience=args.train.early_stopping.patience,
+            early_stopping_threshold=args.train.early_stopping.threshold,
+        ))
+
     trainer = SFTTrainer(
         model=model,
         processing_class=tokenizer,
         args=config,
         train_dataset=dataset[args.dataset.train_split],
         eval_dataset=dataset[args.dataset.validation_split],
+        callbacks=callbacks,
     )
     print("Trainer initialized successfully.")
 

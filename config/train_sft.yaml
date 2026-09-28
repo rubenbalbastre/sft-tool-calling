@@ -19,9 +19,15 @@ train:
   logging_steps: 1
   eval_strategy: "steps"
   eval_steps: 2
+  early_stopping:
+    enabled: true
+    patience: 3 # Number of evaluations without sufficient improvement.
+    threshold: 0.0
+    metric: "eval_loss"
+    greater_is_better: false
   checkpointing:
     save_strategy: "steps"
-    save_steps: 500
+    save_steps: 2 # Keep aligned with eval_steps for early stopping.
     save_total_limit: 3
   final_model:
     save: true
