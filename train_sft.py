@@ -1,50 +1,23 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 from datasets import load_from_disk
-from huggingface_hub import login
 from trl import SFTTrainer, SFTConfig
+from transformers import set_seed
 from dotenv import load_dotenv
 from pathlib import Path
 from omegaconf import OmegaConf
-import os
 import hydra
 import wandb
+from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-
-def setup():
-    load_dotenv(PROJECT_ROOT / ".env")
-
-    huggingface_api_key = os.environ.get("HUGGINGFACE_API_KEY")
-    if huggingface_api_key:
-        login(token=huggingface_api_key)
-
-    wandb_api_key = os.environ.get("WANDB_API_KEY")
-    wandb_project = os.environ.get("WANDB_PROJECT")
-    if wandb_api_key:
-        if not wandb_project:
-            raise ValueError(
-                "WANDB_PROJECT must be set when WANDB_API_KEY is configured."
-            )
-        wandb.login(key=wandb_api_key)
-        wandb.init(project=wandb_project)
-
-    if wandb_api_key:
-        return "wandb", wandb.run.name
-
-    return "none", "local-run"
-
-
-def load_model_and_tokenizer(args):
-    model = AutoModelForCausalLM.from_pretrained(args.train.model_name)
-    tokenizer = AutoTokenizer.from_pretrained(args.train.model_name)
-
-    return model, tokenizer
+from src.training.setup import load_model_and_tokenizer, setup
 
 
 @hydra.main(config_path="config", config_name="train_sft", version_base=None)
 def main(args):
+
+    load_dotenv(PROJECT_ROOT / ".env")
     set_seed(args.train.seed, deterministic=True)
 
     report_to, run_name = setup()
