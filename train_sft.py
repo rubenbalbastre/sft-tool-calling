@@ -43,7 +43,7 @@ def load_model_and_tokenizer(args):
     return model, tokenizer
 
 
-@hydra.main(config_path="config", config_name="train", version_base=None)
+@hydra.main(config_path="config", config_name="train_sft", version_base=None)
 def main(args):
     set_seed(args.train.seed, deterministic=True)
 

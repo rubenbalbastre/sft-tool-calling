@@ -2,6 +2,7 @@ dataset:
   file: "data/pilot/hf_dataset/"
 
 train:
+  style: "sft"
   seed: 42
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct" # "HuggingFaceTB/SmolLM3-3B"
   gradient_accumulation_steps: 1 # 4
