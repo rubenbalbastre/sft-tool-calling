@@ -12,6 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 from src.environment.tools import check_location, ask_for_clarification, request_new_location, can_fulfill_material_request
 from src.training.setup import load_model_and_tokenizer, setup
+from src.training.lora import build_lora_config
 
 
 @hydra.main(config_path="config", config_name="train_opd", version_base=None)
@@ -29,6 +30,7 @@ def main(args):
     OmegaConf.save(args, config_dir / "train.yaml")
 
     model, tokenizer = load_model_and_tokenizer(args)
+    peft_config = build_lora_config(args.lora, model)
     teacher_model = AutoModelForCausalLM.from_pretrained(args.train.teacher_model)
     print("Model and tokenizer loaded successfully.")
 
@@ -66,6 +68,7 @@ def main(args):
         args=config,
         train_dataset=dataset[args.dataset.train_split],
         eval_dataset=dataset[args.dataset.validation_split],
+        peft_config=peft_config,
     )
 
     print("Trainer initialized successfully.")

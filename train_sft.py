@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 from src.training.setup import load_model_and_tokenizer, setup
 from src.training.preprocessing import format_sft_example, prepare_sft_source
+from src.training.lora import build_lora_config
 
 
 @hydra.main(config_path="config", config_name="train_sft", version_base=None)
@@ -30,6 +31,7 @@ def main(args):
     OmegaConf.save(args, config_dir / "train.yaml")
 
     model, tokenizer = load_model_and_tokenizer(args)
+    peft_config = build_lora_config(args.lora, model)
     print("Model and tokenizer loaded successfully.")
 
     dataset_path = PROJECT_ROOT / args.dataset.file
@@ -79,6 +81,7 @@ def main(args):
         eval_dataset=validation_dataset,
         callbacks=callbacks,
         formatting_func=partial(format_sft_example, tokenizer=tokenizer),
+        peft_config=peft_config,
     )
     print("Trainer initialized successfully.")
 
