@@ -12,7 +12,7 @@ import wandb
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 from src.training.setup import load_model_and_tokenizer, setup
-from src.training.preprocessing import format_sft_example
+from src.training.preprocessing import format_sft_example, prepare_sft_source
 
 
 @hydra.main(config_path="config", config_name="train_sft", version_base=None)
@@ -34,6 +34,10 @@ def main(args):
 
     dataset_path = PROJECT_ROOT / args.dataset.file
     dataset = load_from_disk(str(dataset_path))
+    train_dataset = prepare_sft_source(dataset[args.dataset.train_split])
+    validation_dataset = prepare_sft_source(
+        dataset[args.dataset.validation_split]
+    )
     print("Datasets loaded successfully.")
 
     config = SFTConfig(
@@ -71,8 +75,8 @@ def main(args):
         model=model,
         processing_class=tokenizer,
         args=config,
-        train_dataset=dataset[args.dataset.train_split],
-        eval_dataset=dataset[args.dataset.validation_split],
+        train_dataset=train_dataset,
+        eval_dataset=validation_dataset,
         callbacks=callbacks,
         formatting_func=partial(format_sft_example, tokenizer=tokenizer),
     )

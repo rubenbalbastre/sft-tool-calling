@@ -26,8 +26,15 @@ def deserialize_tool_arguments(messages):
 def format_sft_example(example, tokenizer):
     """Render one stored conversation with model-compatible tool arguments."""
     return tokenizer.apply_chat_template(
-        deserialize_tool_arguments(example["messages"]),
+        deserialize_tool_arguments(example["source_messages"]),
         tools=CHAT_TOOLS,
         tokenize=False,
         add_generation_prompt=False,
+    )
+
+
+def prepare_sft_source(dataset):
+    """Hide the conversational column so TRL tokenizes formatted text once."""
+    return dataset.select_columns(["messages"]).rename_column(
+        "messages", "source_messages"
     )

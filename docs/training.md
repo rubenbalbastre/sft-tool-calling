@@ -21,7 +21,9 @@ configuration.
 
 The formatter passed to `SFTTrainer` renders each conversation with the selected
 model's chat template. It converts stored JSON argument strings to mappings for
-templates such as Gemma's and includes the tool definitions.
+templates such as Gemma's and includes the tool definitions. The source column
+is renamed before trainer preparation so TRL tokenizes the rendered text instead
+of detecting and rendering the original messages a second time.
 
 ## Outputs and experiment tracking
 
