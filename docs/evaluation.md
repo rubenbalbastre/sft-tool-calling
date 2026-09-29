@@ -65,8 +65,18 @@ concurrently up to `concurrency`; turns remain ordered within each episode.
 
 ## Thinking and quantization
 
-`enable_thinking: false` disables reasoning output through the tokenizer chat
-template or vLLM `chat_template_kwargs`.
+`enable_thinking` and `reasoning_effort` are passed to the tokenizer chat
+template by both local backends. Their exact effect is model-specific. The
+defaults explicitly disable thinking and select `none` reasoning effort:
+
+```yaml
+enable_thinking: false
+reasoning_effort: "none"
+```
+
+The OpenAI evaluator exposes reasoning effort through its existing
+`--reasoning-effort` argument; `enable_thinking` is a local chat-template
+option and is not sent to the OpenAI Responses API.
 
 For vLLM, `quantization=bnb_4bit` applies BitsAndBytes 4-bit quantization while
 loading an ordinary checkpoint. `quantization=none` applies no override.

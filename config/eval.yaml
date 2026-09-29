@@ -6,6 +6,7 @@ seed: 1234
 max_steps: 10
 max_new_tokens: 256
 enable_thinking: false
+reasoning_effort: "none"
 concurrency: 8 # Maximum simultaneous vLLM inference requests.
 
 # Used by the direct Transformers backend.
