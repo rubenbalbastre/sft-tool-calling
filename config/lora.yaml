@@ -1,0 +1,7 @@
+enabled: true
+r: 16
+alpha: 32
+dropout: 0.05
+bias: "none"
+target_modules: "all-linear"
+num_layers: -1 # -1 targets all transformer layers; N targets the last N.

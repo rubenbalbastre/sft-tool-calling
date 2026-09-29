@@ -15,6 +15,21 @@ python train_sft.py
 python train_opd.py
 ```
 
+## LoRA
+
+Both training entry points use the shared
+[`config/lora.yaml`](../config/lora.yaml). LoRA is enabled by default and
+targets all linear modules. `num_layers: -1` applies it to every transformer
+layer; a positive value applies it to the last N transformer layers.
+
+```bash
+python train_sft.py lora.r=32 lora.num_layers=12
+python train_opd.py lora.enabled=false
+```
+
+When OPD starts from an existing PEFT model, it continues the loaded adapter
+instead of creating a second adapter.
+
 SFT consumes `sft_train` and `sft_validation`. OPD consumes `opd_train` and
 `opd_validation`. These names can be changed under `dataset` in each training
 configuration.

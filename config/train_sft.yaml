@@ -1,3 +1,7 @@
+defaults:
+  - lora@lora
+  - _self_
+
 dataset:
   file: "data/pipeline/hf_dataset/"
   train_split: "sft_train"
