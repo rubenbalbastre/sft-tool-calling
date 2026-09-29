@@ -32,6 +32,16 @@ Run the tests:
 python -m unittest discover -s tests -v
 ```
 
+Run the complete base evaluation, SFT, SFT evaluation, OPD, and final
+evaluation pipeline:
+
+```bash
+./scripts/run-experiments.sh
+```
+
+Use `./scripts/create-env.sh` to create `.venv` and install the declared
+dependencies first.
+
 ## Entry points
 
 | Entry point | Configuration | Purpose |

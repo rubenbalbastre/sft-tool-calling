@@ -19,6 +19,12 @@ SFT consumes `sft_train` and `sft_validation`. OPD consumes `opd_train` and
 `opd_validation`. These names can be changed under `dataset` in each training
 configuration.
 
+The formatter passed to `SFTTrainer` renders each conversation with the selected
+model's chat template. It converts stored JSON argument strings to mappings for
+templates such as Gemma's and includes the tool definitions. The source column
+is renamed before trainer preparation so TRL tokenizes the rendered text instead
+of detecting and rendering the original messages a second time.
+
 ## Outputs and experiment tracking
 
 Each run writes to an `outputs/<wandb-run-name>/` directory containing:
@@ -31,6 +37,15 @@ final_model/
 
 Weights & Biases uses the project named by `WANDB_PROJECT`. The final model and
 tokenizer are saved when `train.final_model.save` is enabled.
+
+Set `train.run_name` to make this path deterministic for a downstream job. The
+experiment runner uses `gemma-4-E2B-it-sft` and
+`gemma-4-E2B-it-sft-opd`, producing:
+
+```text
+outputs/gemma-4-E2B-it-sft/final_model/
+outputs/gemma-4-E2B-it-sft-opd/final_model/
+```
 
 ## SFT early stopping
 

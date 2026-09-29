@@ -73,6 +73,18 @@ TOOLS = [
     },
 ]
 
+CHAT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            key: value
+            for key, value in tool.items()
+            if key not in {"type", "strict"}
+        },
+    }
+    for tool in TOOLS
+]
+
 
 def check_location(city: str):
     """
