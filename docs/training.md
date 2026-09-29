@@ -19,6 +19,11 @@ SFT consumes `sft_train` and `sft_validation`. OPD consumes `opd_train` and
 `opd_validation`. These names can be changed under `dataset` in each training
 configuration.
 
+Before TRL tokenization, SFT renders each conversation with the selected
+model's chat template. Stored JSON argument strings are converted to mappings
+for templates such as Gemma's, and the tool definitions are included during
+rendering. `SFTTrainer` then receives the resulting `text` column.
+
 ## Outputs and experiment tracking
 
 Each run writes to an `outputs/<wandb-run-name>/` directory containing:

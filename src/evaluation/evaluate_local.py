@@ -18,7 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.data_generation.generate_sft_data import generate
 from src.environment.env import SupplyChainEnvironment
-from src.environment.tools import TOOLS
+from src.environment.tools import CHAT_TOOLS, TOOLS
 from src.evaluation.common import (
     DEFAULT_PROMPT,
     create_run_directory,
@@ -33,17 +33,7 @@ TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
 
 def chat_tools():
     """Convert Responses API tool schemas to Chat Completions schemas."""
-    return [
-        {
-            "type": "function",
-            "function": {
-                key: value
-                for key, value in tool.items()
-                if key not in {"type", "strict"}
-            },
-        }
-        for tool in TOOLS
-    ]
+    return CHAT_TOOLS
 
 
 def normalize_call(call):
@@ -57,7 +47,7 @@ def normalize_call(call):
 def parse_transformers_response(tokenizer, generated_ids):
     """Parse with the tokenizer, falling back to SmolLM3 XML tool calls."""
     try:
-        return tokenizer.parse_response(generated_ids, tools=TOOLS)
+        return tokenizer.parse_response(generated_ids, tools=CHAT_TOOLS)
     except AttributeError as error:
         if "response_template" not in str(error):
             raise
@@ -130,7 +120,7 @@ class TransformersBackend:
     async def generate(self, messages):
         inputs = self.tokenizer.apply_chat_template(
             messages,
-            tools=TOOLS,
+            tools=CHAT_TOOLS,
             enable_thinking=self.enable_thinking,
             add_generation_prompt=True,
             tokenize=True,

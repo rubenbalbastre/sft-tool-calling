@@ -1,0 +1,43 @@
+"""Model-specific rendering for supervised conversations."""
+
+import json
+
+from src.environment.tools import CHAT_TOOLS
+
+
+def deserialize_tool_arguments(messages):
+    """Return messages whose tool-call arguments are Python mappings."""
+    normalized = []
+    for message in messages:
+        normalized_message = dict(message)
+        normalized_calls = []
+        for tool_call in message.get("tool_calls") or []:
+            normalized_call = dict(tool_call)
+            function = dict(tool_call["function"])
+            if isinstance(function.get("arguments"), str):
+                function["arguments"] = json.loads(function["arguments"])
+            normalized_call["function"] = function
+            normalized_calls.append(normalized_call)
+        normalized_message["tool_calls"] = normalized_calls
+        normalized.append(normalized_message)
+    return normalized
+
+
+def prepare_sft_dataset(dataset, tokenizer):
+    """Render conversations once so TRL tokenizes the resulting text directly."""
+    def render(example):
+        messages = deserialize_tool_arguments(example["messages"])
+        return {
+            "text": tokenizer.apply_chat_template(
+                messages,
+                tools=CHAT_TOOLS,
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+        }
+
+    return dataset.map(
+        render,
+        remove_columns=dataset.column_names,
+        desc="Rendering conversations",
+    )
