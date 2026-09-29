@@ -49,6 +49,9 @@ def main(args):
         top_k=args.train.top_k,
         max_completion_length=args.train.max_completion_length,
         max_tool_calling_iterations=args.train.max_tool_calling_iterations,
+        chat_template_kwargs={
+            "enable_thinking": args.train.enable_thinking,
+        },
         # precision
         use_cpu=args.train.use_cpu,
         bf16=args.train.bf16,

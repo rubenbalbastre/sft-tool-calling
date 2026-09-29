@@ -102,13 +102,17 @@ def continue_conversation(messages, assistant_message, call, observation):
 
 
 class TransformersBackend:
-    def __init__(self, model_path, max_new_tokens, device, enable_thinking):
+    def __init__(
+        self, model_path, max_new_tokens, device,
+        enable_thinking, reasoning_effort,
+    ):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         self.torch = torch
         self.max_new_tokens = max_new_tokens
         self.enable_thinking = enable_thinking
+        self.reasoning_effort = reasoning_effort
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -122,6 +126,7 @@ class TransformersBackend:
             messages,
             tools=CHAT_TOOLS,
             enable_thinking=self.enable_thinking,
+            reasoning_effort=self.reasoning_effort,
             add_generation_prompt=True,
             tokenize=True,
             return_dict=True,
@@ -150,13 +155,15 @@ class TransformersBackend:
 
 class VLLMBackend:
     def __init__(
-        self, model, base_url, api_key, max_new_tokens, enable_thinking
+        self, model, base_url, api_key, max_new_tokens,
+        enable_thinking, reasoning_effort,
     ):
         from openai import AsyncOpenAI
 
         self.model = model
         self.max_new_tokens = max_new_tokens
         self.enable_thinking = enable_thinking
+        self.reasoning_effort = reasoning_effort
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
     async def generate(self, messages):
@@ -171,6 +178,7 @@ class VLLMBackend:
             extra_body={
                 "chat_template_kwargs": {
                     "enable_thinking": self.enable_thinking,
+                    "reasoning_effort": self.reasoning_effort,
                 }
             },
         )
@@ -293,6 +301,7 @@ def main(args):
             args.max_new_tokens,
             args.device,
             args.enable_thinking,
+            args.reasoning_effort,
         )
     else:
         server = VLLMServer(
@@ -311,6 +320,7 @@ def main(args):
                 args.api_key,
                 args.max_new_tokens,
                 args.enable_thinking,
+                args.reasoning_effort,
             )
         except Exception:
             server.stop()

@@ -24,6 +24,7 @@ train:
   top_k: 0
   max_completion_length: 256
   max_tool_calling_iterations: 5
+  enable_thinking: false
   # precision
   use_cpu: true # false
   bf16: false # true
