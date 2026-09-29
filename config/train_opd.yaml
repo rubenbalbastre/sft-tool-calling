@@ -15,7 +15,7 @@ train:
   max_steps: 5 # 1000
   # generation
   temperature: 1.0
-  top_p: 10.0
+  top_p: 1.0
   top_k: 0
   max_completion_length: 256
   max_tool_calling_iterations: 5
