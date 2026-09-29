@@ -32,6 +32,15 @@ final_model/
 Weights & Biases uses the project named by `WANDB_PROJECT`. The final model and
 tokenizer are saved when `train.final_model.save` is enabled.
 
+Set `train.run_name` to make this path deterministic for a downstream job. The
+experiment runner uses `gemma-4-E2B-it-sft` and
+`gemma-4-E2B-it-sft-opd`, producing:
+
+```text
+outputs/gemma-4-E2B-it-sft/final_model/
+outputs/gemma-4-E2B-it-sft-opd/final_model/
+```
+
 ## SFT early stopping
 
 Early stopping is controlled by `train.early_stopping`:

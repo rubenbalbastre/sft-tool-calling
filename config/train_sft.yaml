@@ -5,6 +5,7 @@ dataset:
 
 train:
   style: "sft"
+  run_name: null # Set this when another job needs a deterministic model path.
   seed: 42
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct" # "HuggingFaceTB/SmolLM3-3B"
   gradient_accumulation_steps: 1 # 4

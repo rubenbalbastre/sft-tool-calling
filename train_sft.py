@@ -19,7 +19,7 @@ def main(args):
     load_dotenv(PROJECT_ROOT / ".env")
     set_seed(args.train.seed, deterministic=True)
 
-    report_to, run_name = setup()
+    report_to, run_name = setup(args.train.run_name)
     run_dir = PROJECT_ROOT / args.train.final_model.output_dir / run_name
     checkpoints_dir = run_dir / "checkpoints"
     final_model_dir = run_dir / "final_model"
