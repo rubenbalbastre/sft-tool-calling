@@ -4,7 +4,7 @@ import unittest
 from src.data_generation.generate_sft_data import build_pipeline_dataset
 from src.training.preprocessing import (
     deserialize_tool_arguments,
-    prepare_sft_dataset,
+    format_sft_example,
 )
 
 
@@ -43,7 +43,7 @@ class TrainingPreprocessingTest(unittest.TestCase):
             messages[0]["tool_calls"][0]["function"]["arguments"], str
         )
 
-    def test_renders_sft_rows_before_trainer_tokenization(self):
+    def test_formats_sft_row_for_trainer(self):
         sizes = {
             "sft_train": 1,
             "sft_validation": 1,
@@ -54,10 +54,9 @@ class TrainingPreprocessingTest(unittest.TestCase):
         source = build_pipeline_dataset(sizes, seed=42)["sft_train"]
         tokenizer = RecordingTokenizer()
 
-        rendered = prepare_sft_dataset(source, tokenizer)
+        rendered = format_sft_example(source[0], tokenizer)
 
-        self.assertEqual(rendered.column_names, ["text"])
-        self.assertEqual(rendered[0]["text"], "rendered conversation")
+        self.assertEqual(rendered, "rendered conversation")
         self.assertEqual(tokenizer.calls[0][1]["tools"][0]["type"], "function")
         self.assertIn("function", tokenizer.calls[0][1]["tools"][0])
 

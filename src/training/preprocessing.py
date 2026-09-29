@@ -23,21 +23,11 @@ def deserialize_tool_arguments(messages):
     return normalized
 
 
-def prepare_sft_dataset(dataset, tokenizer):
-    """Render conversations once so TRL tokenizes the resulting text directly."""
-    def render(example):
-        messages = deserialize_tool_arguments(example["messages"])
-        return {
-            "text": tokenizer.apply_chat_template(
-                messages,
-                tools=CHAT_TOOLS,
-                tokenize=False,
-                add_generation_prompt=False,
-            )
-        }
-
-    return dataset.map(
-        render,
-        remove_columns=dataset.column_names,
-        desc="Rendering conversations",
+def format_sft_example(example, tokenizer):
+    """Render one stored conversation with model-compatible tool arguments."""
+    return tokenizer.apply_chat_template(
+        deserialize_tool_arguments(example["messages"]),
+        tools=CHAT_TOOLS,
+        tokenize=False,
+        add_generation_prompt=False,
     )

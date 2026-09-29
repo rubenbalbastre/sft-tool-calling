@@ -1,4 +1,5 @@
 from datasets import load_from_disk
+from functools import partial
 from trl import SFTTrainer, SFTConfig
 from transformers import EarlyStoppingCallback, set_seed
 from dotenv import load_dotenv
@@ -11,7 +12,7 @@ import wandb
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 from src.training.setup import load_model_and_tokenizer, setup
-from src.training.preprocessing import prepare_sft_dataset
+from src.training.preprocessing import format_sft_example
 
 
 @hydra.main(config_path="config", config_name="train_sft", version_base=None)
@@ -33,12 +34,6 @@ def main(args):
 
     dataset_path = PROJECT_ROOT / args.dataset.file
     dataset = load_from_disk(str(dataset_path))
-    train_dataset = prepare_sft_dataset(
-        dataset[args.dataset.train_split], tokenizer
-    )
-    validation_dataset = prepare_sft_dataset(
-        dataset[args.dataset.validation_split], tokenizer
-    )
     print("Datasets loaded successfully.")
 
     config = SFTConfig(
@@ -50,7 +45,6 @@ def main(args):
         max_steps=args.train.max_steps,
         per_device_eval_batch_size=args.train.per_device_eval_batch_size,
         max_length=args.train.max_seq_length,
-        dataset_text_field="text",
         bf16=args.train.bf16,
         fp16=args.train.fp16,
         use_cpu=args.train.use_cpu,
@@ -77,9 +71,10 @@ def main(args):
         model=model,
         processing_class=tokenizer,
         args=config,
-        train_dataset=train_dataset,
-        eval_dataset=validation_dataset,
+        train_dataset=dataset[args.dataset.train_split],
+        eval_dataset=dataset[args.dataset.validation_split],
         callbacks=callbacks,
+        formatting_func=partial(format_sft_example, tokenizer=tokenizer),
     )
     print("Trainer initialized successfully.")
 
