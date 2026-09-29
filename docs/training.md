@@ -30,6 +30,13 @@ python train_opd.py lora.enabled=false
 When OPD starts from an existing PEFT model, it continues the loaded adapter
 instead of creating a second adapter.
 
+## OPD generation
+
+`train.enable_thinking` in [`config/train_opd.yaml`](../config/train_opd.yaml)
+is passed to the model chat template for rollout generation. It defaults to
+`false` so reasoning tokens are disabled explicitly instead of relying on each
+model template's default.
+
 SFT consumes `sft_train` and `sft_validation`. OPD consumes `opd_train` and
 `opd_validation`. These names can be changed under `dataset` in each training
 configuration.
