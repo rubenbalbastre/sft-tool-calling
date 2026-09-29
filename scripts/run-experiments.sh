@@ -10,8 +10,8 @@ if [[ ! -x .venv/bin/python ]]; then
 fi
 
 PYTHON="$REPOSITORY_ROOT/.venv/bin/python"
-BASE_MODEL="HuggingFaceTB/SmolLM2-135M-Instruct" #"google/gemma-4-E2B-it"
-TEACHER_MODEL="HuggingFaceTB/SmolLM2-360M-Instruct" #"google/gemma-4-12B-it"
+BASE_MODEL="google/gemma-4-E2B-it" # "HuggingFaceTB/SmolLM2-135M-Instruct" #"google/gemma-4-E2B-it"
+TEACHER_MODEL="google/gemma-4-12B-it" # "HuggingFaceTB/SmolLM2-360M-Instruct" #"google/gemma-4-12B-it"
 SFT_RUN="${BASE_MODEL}-sft"
 OPD_RUN="${SFT_RUN}-opd"
 SFT_MODEL="$REPOSITORY_ROOT/outputs/$SFT_RUN/final_model"
