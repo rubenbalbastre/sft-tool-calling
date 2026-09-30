@@ -8,6 +8,15 @@ def load_model_and_tokenizer(args):
     model = AutoModelForCausalLM.from_pretrained(args.train.model_name)
     tokenizer = AutoTokenizer.from_pretrained(args.train.model_name)
 
+    # TRL's tool loop expects this value on the top-level config. Composite
+    # text models such as Gemma 4 keep it in ``text_config`` instead.
+    if not hasattr(model.config, "max_position_embeddings") and hasattr(
+        model.config, "text_config"
+    ):
+        model.config.max_position_embeddings = (
+            model.config.text_config.max_position_embeddings
+        )
+
     return model, tokenizer
 
 
