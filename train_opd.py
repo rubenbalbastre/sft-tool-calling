@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 from src.environment.tools import check_location, ask_for_clarification, request_new_location, can_fulfill_material_request
 from src.training.setup import load_model_and_tokenizer, setup
 from src.training.lora import build_lora_config
+from src.training.preprocessing import prepare_opd_source
 
 
 @hydra.main(config_path="config", config_name="train_opd", version_base=None)
@@ -36,6 +37,10 @@ def main(args):
 
     dataset_path = PROJECT_ROOT / args.dataset.file
     dataset = load_from_disk(str(dataset_path))
+    train_dataset = prepare_opd_source(dataset[args.dataset.train_split])
+    validation_dataset = prepare_opd_source(
+        dataset[args.dataset.validation_split]
+    )
     print("Datasets loaded successfully.")
 
     config = DistillationConfig(
@@ -69,8 +74,8 @@ def main(args):
         processing_class=tokenizer,
         tools=[check_location, ask_for_clarification, request_new_location, can_fulfill_material_request],
         args=config,
-        train_dataset=dataset[args.dataset.train_split],
-        eval_dataset=dataset[args.dataset.validation_split],
+        train_dataset=train_dataset,
+        eval_dataset=validation_dataset,
         peft_config=peft_config,
     )
 
