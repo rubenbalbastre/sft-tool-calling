@@ -2,6 +2,7 @@
 
 import csv
 from pathlib import Path
+from transformers.utils import get_json_schema
 
 
 MASTER_DATA_PATH = Path(__file__).parent / "master_data.csv"
@@ -9,89 +10,12 @@ MASTER_DATA_PATH = Path(__file__).parent / "master_data.csv"
 with MASTER_DATA_PATH.open(encoding="utf-8", newline="") as file:
     MASTER_DATA = list(csv.DictReader(file))
 
-TOOLS = [
-    {
-        "type": "function",
-        "name": "check_location",
-        "description": "Find all plants in a city.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {"city": {"type": "string"}},
-            "required": ["city"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "type": "function",
-        "name": "ask_for_clarification",
-        "description": "Ask the user to select one of multiple matching plants.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "candidate_plant_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                }
-            },
-            "required": ["candidate_plant_ids"],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "type": "function",
-        "name": "request_new_location",
-        "description": "Ask for another city when location lookup has no matches.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-            "additionalProperties": False,
-        },
-    },
-    {
-        "type": "function",
-        "name": "can_fulfill_material_request",
-        "description": "Check fulfillment at one resolved plant.",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "material_id": {"type": "string"},
-                "quantity": {"type": "number"},
-                "unit": {"type": "string", "enum": ["kg", "units"]},
-                "required_date": {"type": "string"},
-                "plant_id": {"type": "string"},
-            },
-            "required": [
-                "material_id", "quantity", "unit", "required_date", "plant_id"
-            ],
-            "additionalProperties": False,
-        },
-    },
-]
-
-CHAT_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            key: value
-            for key, value in tool.items()
-            if key not in {"type", "strict"}
-        },
-    }
-    for tool in TOOLS
-]
-
-
 def check_location(city: str):
     """
     Return every plant whose city matches the supplied city.
     
     Args:
-        city (str): The name of the city to search for.
+        city: The name of the city to search for.
     
     Returns:
         dict: A dictionary containing the matching plants.
@@ -109,7 +33,7 @@ def ask_for_clarification(candidate_plant_ids: list[str]):
     Request that the user choose one of the candidate plants.
 
     Args:
-        candidate_plant_ids (list[str]): A list of candidate plant IDs.
+        candidate_plant_ids: A list of candidate plant IDs.
 
     Returns:
         dict: A dictionary containing the clarification status and candidate plants.
@@ -143,17 +67,21 @@ def request_new_location():
 
 
 def can_fulfill_material_request(
-    material_id, quantity, unit, required_date, plant_id
+    material_id: str,
+    quantity: float,
+    unit: str,
+    required_date: str,
+    plant_id: str,
 ):
     """
     Represent the fulfillment tool exposed by the task environment.
     
     Args:
-        material_id (str): The ID of the material to check.
-        quantity (float): The quantity of the material requested.
-        unit (str): The unit of measurement for the quantity.
-        required_date (str): The date by which the material is required.
-        plant_id (str): The ID of the plant to check for fulfillment.
+        material_id: The ID of the material to check.
+        quantity: The quantity of the material requested.
+        unit: The unit of measurement. (choices: ["kg", "units"])
+        required_date: The date by which the material is required.
+        plant_id: The ID of the plant to check for fulfillment.
 
     Returns:
         dict: A dictionary containing the material request details.
@@ -165,3 +93,22 @@ def can_fulfill_material_request(
         "required_date": required_date,
         "plant_id": plant_id,
     }
+
+
+TOOL_FUNCTIONS = [
+    check_location,
+    ask_for_clarification,
+    request_new_location,
+    can_fulfill_material_request,
+]
+
+CHAT_TOOLS = [get_json_schema(function) for function in TOOL_FUNCTIONS]
+for tool in CHAT_TOOLS:
+    parameters = tool["function"]["parameters"]
+    parameters.setdefault("required", [])
+    parameters["additionalProperties"] = False
+
+TOOLS = [
+    {"type": "function", **tool["function"], "strict": True}
+    for tool in CHAT_TOOLS
+]
