@@ -38,3 +38,8 @@ def prepare_sft_source(dataset):
     return dataset.select_columns(["messages"]).rename_column(
         "messages", "source_messages"
     )
+
+
+def prepare_opd_source(dataset):
+    """Expose prompt-only messages under the column required by TRL OPD."""
+    return dataset.select_columns(["messages"]).rename_column("messages", "prompt")
