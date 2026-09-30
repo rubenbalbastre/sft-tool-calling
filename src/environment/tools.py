@@ -10,15 +10,19 @@ MASTER_DATA_PATH = Path(__file__).parent / "master_data.csv"
 with MASTER_DATA_PATH.open(encoding="utf-8", newline="") as file:
     MASTER_DATA = list(csv.DictReader(file))
 
+
 def check_location(city: str):
-    """
-    Return every plant whose city matches the supplied city.
-    
+    """Look up plants in the master data by city.
+
+    Use this before fulfillment when the user provides a city instead of an
+    explicit target plant ID. Matching ignores case and surrounding whitespace.
+
     Args:
-        city: The name of the city to search for.
-    
+        city: City requested by the user.
+
     Returns:
-        dict: A dictionary containing the matching plants.
+        A mapping whose ``matches`` list contains the matching plant records.
+        The list is empty when the city is unavailable.
     """
     matches = [
         plant
@@ -29,14 +33,19 @@ def check_location(city: str):
 
 
 def ask_for_clarification(candidate_plant_ids: list[str]):
-    """
-    Request that the user choose one of the candidate plants.
+    """Ask the user to select one of several matching plants.
+
+    Use this only after a city lookup returns multiple plants.
 
     Args:
-        candidate_plant_ids: A list of candidate plant IDs.
+        candidate_plant_ids: At least two distinct plant IDs returned by the
+            preceding city lookup.
 
     Returns:
-        dict: A dictionary containing the clarification status and candidate plants.
+        A clarification status and the corresponding plant records.
+
+    Raises:
+        ValueError: If IDs are duplicated, unknown, or fewer than two.
     """
     if len(candidate_plant_ids) < 2 or len(candidate_plant_ids) != len(
         set(candidate_plant_ids)
@@ -54,14 +63,10 @@ def ask_for_clarification(candidate_plant_ids: list[str]):
 
 
 def request_new_location():
-    """
-    Request a different city after a location lookup returns no records.
-    
-    Args:
-        None
-    
+    """Ask the user for another city after a lookup returns no plants.
+
     Returns:
-        dict: A dictionary indicating that a new location is requested.
+        A status indicating that a new location was requested.
     """
     return {"status": "new_location_requested"}
 
@@ -73,18 +78,20 @@ def can_fulfill_material_request(
     required_date: str,
     plant_id: str,
 ):
-    """
-    Represent the fulfillment tool exposed by the task environment.
-    
+    """Submit the material request to one resolved plant.
+
+    Call this only after the target plant is explicit or has been resolved by
+    location lookup and, when necessary, user clarification.
+
     Args:
-        material_id: The ID of the material to check.
-        quantity: The quantity of the material requested.
+        material_id: Material identifier from the original request.
+        quantity: Requested material quantity.
         unit: The unit of measurement. (choices: ["kg", "units"])
-        required_date: The date by which the material is required.
-        plant_id: The ID of the plant to check for fulfillment.
+        required_date: Required delivery date from the original request.
+        plant_id: Explicit or resolved target plant identifier.
 
     Returns:
-        dict: A dictionary containing the material request details.
+        The normalized material request submitted for fulfillment.
     """
     return {
         "material_id": material_id,
