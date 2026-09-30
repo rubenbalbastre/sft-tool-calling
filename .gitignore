@@ -1,10 +1,9 @@
 .venv
 .env
 *.jsonl
-*.pyc
-*/__pycache__/*
+__pycache__/
+*.py[cod]
 
 data/
 outputs/
 wandb/
-src/environment/__pycache__/tools.cpython-312.pyc
