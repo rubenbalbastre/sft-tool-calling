@@ -26,8 +26,8 @@ train:
   max_tool_calling_iterations: 5
   enable_thinking: false
   # precision
-  use_cpu: true # false
-  bf16: false # true
+  use_cpu: false # false
+  bf16: true # true
   fp16: false # true
   # logs
   logging_steps: 1
