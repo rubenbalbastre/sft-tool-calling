@@ -44,10 +44,14 @@ def normalize_call(call):
     }
 
 
-def parse_transformers_response(tokenizer, generated_ids):
+def parse_transformers_response(tokenizer, generated_ids, prefix_ids):
     """Parse with the tokenizer, falling back to SmolLM3 XML tool calls."""
     try:
-        return tokenizer.parse_response(generated_ids, tools=CHAT_TOOLS)
+        return tokenizer.parse_response(
+            generated_ids,
+            prefix=prefix_ids,
+            tools=CHAT_TOOLS,
+        )
     except AttributeError as error:
         if "response_template" not in str(error):
             raise
@@ -143,7 +147,11 @@ class TransformersBackend:
             )
 
         generated_ids = output[0, input_length:]
-        parsed = parse_transformers_response(self.tokenizer, generated_ids)
+        parsed = parse_transformers_response(
+            self.tokenizer,
+            generated_ids,
+            inputs["input_ids"][0],
+        )
         calls = parsed.get("tool_calls") or []
         usage = {
             "input_tokens": input_length,
