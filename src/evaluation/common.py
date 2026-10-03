@@ -25,13 +25,16 @@ def create_run_directory(output_root):
             run_number += 1
 
 
-def episode_result(scenario, info, steps, started, usage, trace, reason=None):
+def episode_result(
+    scenario, info, steps, started, usage, trace, reason=None, user_prompt=None
+):
     """Build the common result record returned by every backend."""
     return {
         "scenario_id": scenario["scenario_id"],
         "kind": scenario["kind"],
         "language": scenario["language"],
         "difficulty": scenario["difficulty"],
+        "prompt": user_prompt,
         "success": info["success"],
         "episode_return": info["episode_return"],
         "steps": steps,

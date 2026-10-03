@@ -96,6 +96,7 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
                 usage,
                 trace,
                 f"API error: {error}",
+                user_prompt=user_request,
             )
         add_usage(usage, response)
         call, output_error = response_call(response)
@@ -124,6 +125,7 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
                 usage,
                 trace,
                 output_error,
+                user_prompt=user_request,
             )
 
         previous_response_id = response.id
@@ -138,6 +140,7 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
         usage,
         trace,
         "Maximum steps reached",
+        user_prompt=user_request,
     )
 
 

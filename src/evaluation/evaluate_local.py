@@ -253,7 +253,14 @@ async def run_episode(
 
         if done:
             return episode_result(
-                scenario, info, step_number, started, usage, trace, output_error
+                scenario,
+                info,
+                step_number,
+                started,
+                usage,
+                trace,
+                output_error,
+                user_prompt=user_request,
             )
 
         continue_conversation(messages, assistant_message, call, observation)
@@ -267,6 +274,7 @@ async def run_episode(
         usage,
         trace,
         "Maximum steps reached",
+        user_prompt=user_request,
     )
 
 
