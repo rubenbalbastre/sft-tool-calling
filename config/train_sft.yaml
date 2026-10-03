@@ -12,12 +12,12 @@ train:
   run_name: null # Set this when another job needs a deterministic model path.
   seed: 42
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct" # "HuggingFaceTB/SmolLM3-3B"
-  gradient_accumulation_steps: 1 # 4
-  per_device_train_batch_size: 64 # 16
-  per_device_eval_batch_size: 64 # 16
+  gradient_accumulation_steps: 2 # 4
+  per_device_train_batch_size: 16 # 16
+  per_device_eval_batch_size: 32 # 16
   max_seq_length: 1024
   learning_rate: 2e-5
-  max_steps: 50 # 1000
+  max_steps: 80 # 1000
   use_cpu: false # false
   bf16: true # true
   fp16: false # true
@@ -32,7 +32,7 @@ train:
     greater_is_better: false
   checkpointing:
     save_strategy: "steps"
-    save_steps: 200 # Keep aligned with eval_steps for early stopping.
+    save_steps: 8 # Keep aligned with eval_steps for early stopping.
     save_total_limit: 3
   final_model:
     save: true
