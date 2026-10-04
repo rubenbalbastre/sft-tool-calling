@@ -1,6 +1,6 @@
 # Evaluation
 
-Both evaluators run fresh hidden scenarios through the same multi-turn
+Both evaluators run fresh seeded procurement scenarios through the same
 environment. Results are written to numbered directories:
 
 ```text
@@ -11,8 +11,9 @@ data/evals/eval-0001/
 └── vllm.log          # vLLM runs only
 ```
 
-`results.jsonl` contains complete episode traces. `results.json` adds aggregate
-and per-trajectory metrics, token totals, and latency.
+`results.jsonl` contains prompts, complete episode traces, terminal feasibility
+and utility metrics. `results.json` adds aggregate and per-task-type metrics,
+token totals, and latency.
 
 ## OpenAI models
 
@@ -22,11 +23,18 @@ Set `OPENAI_API_KEY` in the shell or `.env`, then run:
 python -m src.evaluation.evaluate_openai \
   --model gpt-5.4-nano \
   --reasoning-effort none \
-  --episodes 20
+  --temperature 0 \
+  --episodes 100
 ```
 
 This performs paid API calls. Start with a small episode count. Use the same
 seed and episode count when comparing models or prompts.
+
+The OpenAI evaluator reads its defaults from `config/eval.yaml`. It shares
+`openai_model`, `episodes`, `seed`, `max_steps`, `reasoning_effort`,
+`temperature`, and `output_root` with that configuration; command-line options
+override them. Local-only backend, device, concurrency, quantization, and chat
+template settings are ignored.
 
 ## Local models
 
@@ -43,7 +51,7 @@ python -m src.evaluation.evaluate_local \
   backend=transformers \
   model=outputs/my-run/final_model \
   device=auto \
-  episodes=20
+  episodes=100
 ```
 
 ### vLLM
@@ -72,7 +80,12 @@ defaults explicitly disable thinking and select `none` reasoning effort:
 ```yaml
 enable_thinking: false
 reasoning_effort: "none"
+temperature: 0.0
 ```
+
+`temperature` controls decoding randomness for both local backends. At `0.0`,
+Transformers uses greedy decoding and vLLM receives zero temperature. A positive
+value enables sampling in Transformers.
 
 The OpenAI evaluator exposes reasoning effort through its existing
 `--reasoning-effort` argument; `enable_thinking` is a local chat-template

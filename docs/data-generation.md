@@ -21,13 +21,16 @@ All splits have the same columns:
 - `messages`: full SFT conversation or initial OPD/test prompt;
 - `scenario_json`: hidden state for the environment and verifier;
 - `scenario_id`, `stage`, `language`, `trajectory_type`, and `difficulty`;
-- `tool_sequence`: expected action sequence for analysis.
+- `tool_sequence`: reference trajectory sequence for analysis, not a required
+  sequence enforced by the verifier.
 
 Only `messages` is model input. Never include `scenario_json` or
 `tool_sequence` in the model prompt.
 
-Generation is seeded and uses 30 request phrases per language: ten at each of
-the simple, medium, and hard levels. Tool arguments are JSON strings under
+Generation is seeded and cycles through direct-supplier, open-search,
+compliance, preferred-with-fallback, and no-feasible-option tasks. Complete SFT
+conversations are produced by running a reference policy through the same
+environment used for evaluation. Tool arguments are JSON strings under
 `assistant.tool_calls[].function.arguments`.
 
 ## Hydra overrides
@@ -58,7 +61,7 @@ Set `HF_TOKEN` in the shell or the repository's ignored `.env`, then run:
 ```bash
 python generate_data.py \
   hub.push=true \
-  hub.repo_id=your-account/supply-chain-tool-calling \
+  hub.repo_id=your-account/procurement-tool-calling \
   hub.config_name=pipeline-v1
 ```
 
@@ -68,7 +71,7 @@ Load the named configuration with:
 from datasets import load_dataset
 
 dataset = load_dataset(
-    "your-account/supply-chain-tool-calling",
+    "your-account/procurement-tool-calling",
     "pipeline-v1",
 )
 ```

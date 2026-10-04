@@ -2,7 +2,7 @@
 
 import json
 
-from src.environment.tools import CHAT_TOOLS
+from src.environment.procurement import CHAT_TOOLS
 
 
 def deserialize_tool_arguments(messages):

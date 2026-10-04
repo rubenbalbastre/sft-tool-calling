@@ -1,12 +1,14 @@
 backend: "transformers" # transformers or vllm
 model: "outputs/breezy-surf-7/final_model"
+openai_model: "gpt-5.6-luna"
 
 episodes: 5
 seed: 1234
-max_steps: 10
-max_new_tokens: 256
+max_steps: 20
+max_new_tokens: 1024
+temperature: 0.0
 enable_thinking: false
-reasoning_effort: "none"
+reasoning_effort: "none" # none, low, medium, high
 concurrency: 8 # Maximum simultaneous vLLM inference requests.
 
 # Used by the direct Transformers backend.
@@ -15,7 +17,7 @@ device: "auto"
 # Used by the OpenAI-compatible vLLM server backend.
 base_url: "http://localhost:8000/v1"
 api_key: "local"
-served_model_name: "supply-chain"
+served_model_name: "procurement-agent"
 vllm_server_config: "config/vllm.yaml"
 vllm_startup_timeout: 300
 quantization: "none" # none or bnb_4bit; checkpoint quantization is auto-detected.

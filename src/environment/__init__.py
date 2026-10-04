@@ -1,2 +1,1 @@
-"""Deterministic supply-chain task environment."""
-
+"""Deterministic procurement option-selection environment."""

@@ -1,4 +1,4 @@
-"""Evaluate an OpenAI model and prompt on the supply-chain environment."""
+"""Evaluate an OpenAI model and prompt on the procurement environment."""
 
 import argparse
 import json
@@ -7,14 +7,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from omegaconf import OmegaConf
+
 # Direct execution adds evaluation/ to sys.path, not the repository root.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.data_generation.generate_sft_data import generate
-from src.environment.env import SupplyChainEnvironment
-from src.environment.tools import TOOLS
+from src.environment.procurement import TOOLS, ProcurementEnvironment, generate_scenarios
 from src.evaluation.common import (
     DEFAULT_PROMPT,
     create_run_directory,
@@ -60,10 +60,26 @@ def add_usage(total, response):
     total["total_tokens"] += usage.total_tokens
 
 
-def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
+def load_eval_defaults():
+    """Load the settings shared by local and OpenAI evaluation."""
+    config = OmegaConf.load(PROJECT_ROOT / "config" / "eval.yaml")
+    return {
+        "model": config.openai_model,
+        "reasoning_effort": config.reasoning_effort,
+        "temperature": float(config.temperature),
+        "episodes": int(config.episodes),
+        "seed": int(config.seed),
+        "max_steps": int(config.max_steps),
+        "output_root": PROJECT_ROOT / config.output_root,
+    }
+
+
+def run_episode(
+    client, row, model, prompt, reasoning_effort, max_steps, temperature=0.0
+):
     scenario = row["scenario"]
-    user_request = row["messages"][0]["content"]
-    env = SupplyChainEnvironment(scenario, user_request)
+    user_request = scenario["user_request"]
+    env = ProcurementEnvironment(scenario, max_steps=max_steps)
     env.reset()
     trace = []
     usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
@@ -80,12 +96,16 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
             "parallel_tool_calls": False,
             "reasoning": {"effort": reasoning_effort},
         }
+        if reasoning_effort == "none":
+            request["temperature"] = temperature
         if previous_response_id:
             request["previous_response_id"] = previous_response_id
         try:
             response = client.responses.create(**request)
         except Exception as error:
-            _, _, _, info = env.step({
+            error_message = f"API error: {error}"
+            trace.append({"step": step_number, "error": error_message})
+            _, _, _, _, info = env.step({
                 "name": "invalid_model_output", "arguments": {}
             })
             return episode_result(
@@ -95,23 +115,26 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
                 started,
                 usage,
                 trace,
-                f"API error: {error}",
+                error_message,
                 user_prompt=user_request,
             )
         add_usage(usage, response)
         call, output_error = response_call(response)
 
         if output_error:
-            observation, reward, done, info = env.step({
+            observation, reward, terminated, truncated, info = env.step({
                 "name": "invalid_model_output", "arguments": {}
             })
+            done = terminated or truncated
             trace.append({"step": step_number, "error": output_error})
         else:
             action = {"name": call.name, "arguments": call.arguments}
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             trace.append({
                 "step": step_number,
                 "action": action,
+                "observation": observation,
                 "reward": reward,
                 "state": env.state,
             })
@@ -131,7 +154,7 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
         previous_response_id = response.id
         model_input = next_input(call, observation)
 
-    _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
+    _, _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
     return episode_result(
         scenario,
         info,
@@ -145,18 +168,30 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
 
 
 def main():
+    defaults = load_eval_defaults()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default="gpt-5.4-nano")
-    parser.add_argument("--reasoning-effort", default="none")
-    parser.add_argument("--episodes", type=int, default=5)
-    parser.add_argument("--seed", type=int, default=1234)
-    parser.add_argument("--max-steps", type=int, default=10)
+    parser.add_argument("--model", default=defaults["model"])
+    parser.add_argument(
+        "--reasoning-effort", default=defaults["reasoning_effort"]
+    )
+    parser.add_argument(
+        "--temperature", type=float, default=defaults["temperature"]
+    )
+    parser.add_argument("--episodes", type=int, default=defaults["episodes"])
+    parser.add_argument("--seed", type=int, default=defaults["seed"])
+    parser.add_argument("--max-steps", type=int, default=defaults["max_steps"])
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=PROJECT_ROOT / "data" / "evals",
+        default=defaults["output_root"],
     )
     args = parser.parse_args()
+    if not 0 <= args.temperature <= 2:
+        parser.error("--temperature must be between 0 and 2")
+    if args.reasoning_effort != "none" and args.temperature != 0:
+        parser.error(
+            "--temperature is only supported when --reasoning-effort=none"
+        )
 
     from openai import OpenAI
     from dotenv import load_dotenv
@@ -167,6 +202,7 @@ def main():
     config = {
         "model": args.model,
         "reasoning_effort": args.reasoning_effort,
+        "temperature": args.temperature,
         "episodes": args.episodes,
         "seed": args.seed,
         "max_steps": args.max_steps,
@@ -175,12 +211,21 @@ def main():
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     save_config(run_directory, config)
-    rows = generate(args.episodes, "evaluation", args.seed)
+    rows = [
+        {"scenario": scenario}
+        for scenario in generate_scenarios(args.episodes, "evaluation", args.seed)
+    ]
     client = OpenAI()
     results = []
     for index, row in enumerate(rows, 1):
         result = run_episode(
-            client, row, args.model, prompt, args.reasoning_effort, args.max_steps
+            client,
+            row,
+            args.model,
+            prompt,
+            args.reasoning_effort,
+            args.max_steps,
+            args.temperature,
         )
         results.append(result)
         print(

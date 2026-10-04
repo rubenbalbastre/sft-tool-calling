@@ -1,42 +1,31 @@
-# Multilingual supply-chain tool calling
+# Procurement tool-calling environment
 
-A small environment for training and evaluating models on multilingual,
-multi-turn tool calling. The model resolves a requested city to a plant, asks
-for structured clarification when necessary, and submits a final material
-fulfilment request.
+A small executable environment for evaluating models on procurement option
+selection. Models research suppliers, request seeded quotes, inspect delivery
+options, and submit a feasible near-optimal plan. Prompts require different
+routes rather than one fixed sequence of tool calls.
 
-The same deterministic rules support two stages:
+The SQLite master data is fixed while quote and delivery conditions are
+deterministically derived from each episode seed. The verifier scores final
+feasibility, utility, evidence, and route-specific requirements without
+comparing against a gold trajectory.
 
-- supervised fine-tuning (SFT) on complete trajectories;
-- on-policy distillation on prompt-only scenarios.
+The dataset generator uses the same scenarios, tools, and verifier. It currently
+creates deterministic reference trajectories; these can later be replaced or
+augmented with filtered teacher rollouts without changing the dataset schema.
 
 ## Quick start
 
 Run commands from the repository root with the project environment activated.
 
 ```bash
-python generate_data.py
-python train_sft.py
-python train_opd.py
-```
-
-Evaluate a saved model:
-
-```bash
-python -m src.evaluation.evaluate_local
+python -m src.evaluation.evaluate_local episodes=100 seed=1234
 ```
 
 Run the tests:
 
 ```bash
 python -m unittest discover -s tests -v
-```
-
-Run the complete base evaluation, SFT, SFT evaluation, OPD, and final
-evaluation pipeline:
-
-```bash
-./scripts/run-experiments.sh
 ```
 
 Use `./scripts/create-env.sh` to create `.venv` and install the declared
@@ -46,7 +35,7 @@ dependencies first.
 
 | Entry point | Configuration | Purpose |
 | --- | --- | --- |
-| `generate_data.py` | `config/data_generation.yaml` | Create and optionally publish the Hugging Face dataset |
+| `generate_data.py` | `config/data_generation.yaml` | Create the procurement SFT/OPD pilot dataset |
 | `train_sft.py` | `config/train_sft.yaml` | Supervised fine-tuning |
 | `train_opd.py` | `config/train_opd.yaml` | On-policy distillation |
 | `python -m src.evaluation.evaluate_local` | `config/eval.yaml` | Evaluate with Transformers or an automatically managed vLLM server |
@@ -66,6 +55,7 @@ python -m src.evaluation.evaluate_local backend=vllm episodes=100
 - [SFT and on-policy training](docs/training.md)
 - [Local and OpenAI evaluation](docs/evaluation.md)
 
-The plant master data is in
-[`src/environment/master_data.csv`](src/environment/master_data.csv), and all
-generated artifacts are written below `data/` or `outputs/`.
+The procurement environment lives in
+[`src/environment/procurement`](src/environment/procurement), and its SQLite
+database is created automatically below `data/environment/`. Generated
+artifacts are written below `data/` or `outputs/`.

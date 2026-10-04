@@ -24,6 +24,22 @@ class DataGenerationTest(unittest.TestCase):
         self.assertEqual(dataset["opd_train"][0]["stage"], "opd")
         self.assertEqual(dataset["test"][0]["stage"], "evaluation")
         self.assertIn("material_id", json.loads(dataset["test"][0]["scenario_json"]))
+        tool_names = {
+            call["function"]["name"]
+            for message in dataset["sft_train"][0]["messages"]
+            for call in message["tool_calls"]
+        }
+        self.assertTrue(tool_names <= {
+            "search_suppliers",
+            "get_supplier_profile",
+            "request_quote",
+            "get_delivery_options",
+            "submit_procurement_plan",
+            "report_no_feasible_option",
+        })
+        self.assertTrue(
+            {"submit_procurement_plan", "report_no_feasible_option"} & tool_names
+        )
 
 
 if __name__ == "__main__":

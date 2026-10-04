@@ -5,14 +5,17 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from omegaconf import OmegaConf
+
 from src.evaluation.common import create_run_directory, summarize
-from src.evaluation.evaluate_openai import run_episode
+from src.evaluation.evaluate_openai import load_eval_defaults, run_episode
 from src.evaluation.evaluate_local import (
     parse_transformers_response,
     run_episode as run_local_episode,
 )
 from src.evaluation.vllm import quantization_arguments
-from src.environment.tools import TOOLS
+from src.environment.procurement import ProcurementEnvironment, generate_scenarios
+from src.environment.procurement.tools import TOOLS
 
 class FakeResponses:
     def __init__(self, calls):
@@ -53,7 +56,7 @@ class FakeLocalBackend:
 
 
 class SmolLM3TokenizerWithoutResponseTemplate:
-    def parse_response(self, generated_ids, tools):
+    def parse_response(self, generated_ids, prefix, tools):
         raise AttributeError(
             "This tokenizer does not have a `response_template` for parsing chat responses!"
         )
@@ -63,6 +66,23 @@ class SmolLM3TokenizerWithoutResponseTemplate:
 
 
 class EvaluatorTest(unittest.TestCase):
+    def test_openai_evaluator_uses_shared_defaults(self):
+        defaults = load_eval_defaults()
+        config = OmegaConf.load(
+            Path(__file__).resolve().parents[1] / "config" / "eval.yaml"
+        )
+        self.assertEqual(defaults["reasoning_effort"], config.reasoning_effort)
+        self.assertEqual(defaults["temperature"], config.temperature)
+        self.assertEqual(defaults["episodes"], config.episodes)
+
+    def test_openai_tool_schemas_are_strict(self):
+        for tool in TOOLS:
+            parameters = tool["parameters"]
+            self.assertEqual(
+                set(parameters["required"]), set(parameters["properties"])
+            )
+            self.assertFalse(parameters["additionalProperties"])
+
     def test_vllm_quantization_arguments(self):
         self.assertEqual(quantization_arguments("none"), [])
         self.assertEqual(
@@ -72,16 +92,16 @@ class EvaluatorTest(unittest.TestCase):
 
     def test_smolllm3_xml_tool_call_parser(self):
         output = (
-            '<tool_call>{"name":"check_location",'
-            '"arguments":{"city":"Bilbao"}}</tool_call>'
+            '<tool_call>{"name":"search_suppliers",'
+            '"arguments":{"material_id":"MAT-1042"}}</tool_call>'
         )
         parsed = parse_transformers_response(
-            SmolLM3TokenizerWithoutResponseTemplate(), output
+            SmolLM3TokenizerWithoutResponseTemplate(), output, []
         )
 
         self.assertEqual(
             parsed["tool_calls"][0]["function"],
-            {"name": "check_location", "arguments": {"city": "Bilbao"}},
+            {"name": "search_suppliers", "arguments": {"material_id": "MAT-1042"}},
         )
 
     def test_run_directories_are_numbered(self):
@@ -90,35 +110,27 @@ class EvaluatorTest(unittest.TestCase):
             self.assertEqual(create_run_directory(root).name, "eval-0001")
             self.assertEqual(create_run_directory(root).name, "eval-0002")
 
-    def test_ambiguous_online_rollout(self):
-        scenario = {
-            "scenario_id": "test_1",
-            "kind": "ambiguous",
-            "language": "English",
-            "difficulty": "simple",
-            "material_id": "MAT-1842",
-            "quantity": 350,
-            "unit": "kg",
-            "required_date": "2026-10-15",
-            "city": "Valencia",
-            "explicit_plant_id": None,
-            "selected_plant_id": "ES-08",
-        }
-        row = {
-            "scenario": scenario,
-            "messages": [{"role": "user", "content": "Can Valencia supply it?"}],
-        }
+    def test_direct_supplier_online_rollout(self):
+        scenario = generate_scenarios(1, "test", 77)[0]
+        env = ProcurementEnvironment(scenario)
+        quote = env._generate_quote(scenario["requested_supplier_id"])
+        best = max(env.oracle_options(), key=lambda option: option["utility"])
+        row = {"scenario": scenario}
         responses = FakeResponses([
-            ("check_location", {"city": "Valencia"}),
-            ("ask_for_clarification", {
-                "candidate_plant_ids": ["ES-03", "ES-08"]
+            ("request_quote", {
+                "supplier_id": scenario["requested_supplier_id"],
+                "material_id": scenario["material_id"],
+                "quantity": scenario["quantity"],
+                "unit": scenario["unit"],
+                "required_date": scenario["required_date"],
             }),
-            ("can_fulfill_material_request", {
-                "material_id": "MAT-1842",
-                "quantity": 350,
-                "unit": "kg",
-                "required_date": "2026-10-15",
-                "plant_id": "ES-08",
+            ("get_delivery_options", {
+                "quote_id": quote["quote_id"],
+                "destination": scenario["destination"],
+            }),
+            ("submit_procurement_plan", {
+                "quote_id": best["quote_id"],
+                "delivery_option_id": best["delivery_option_id"],
             }),
         ])
         client = SimpleNamespace(responses=responses)
@@ -134,36 +146,31 @@ class EvaluatorTest(unittest.TestCase):
             request["reasoning"] == {"effort": "none"}
             for request in responses.requests
         ))
+        self.assertTrue(all(
+            request["temperature"] == 0.0 for request in responses.requests
+        ))
 
-    def test_ambiguous_local_rollout(self):
-        scenario = {
-            "scenario_id": "test_local",
-            "kind": "ambiguous",
-            "language": "English",
-            "difficulty": "simple",
-            "material_id": "MAT-1842",
-            "quantity": 350,
-            "unit": "kg",
-            "required_date": "2026-10-15",
-            "city": "Valencia",
-            "explicit_plant_id": None,
-            "selected_plant_id": "ES-08",
-        }
-        row = {
-            "scenario": scenario,
-            "messages": [{"role": "user", "content": "Can Valencia supply it?"}],
-        }
+    def test_direct_supplier_local_rollout(self):
+        scenario = generate_scenarios(1, "test", 88)[0]
+        env = ProcurementEnvironment(scenario)
+        quote = env._generate_quote(scenario["requested_supplier_id"])
+        best = max(env.oracle_options(), key=lambda option: option["utility"])
+        row = {"scenario": scenario}
         backend = FakeLocalBackend([
-            ("check_location", {"city": "Valencia"}),
-            ("ask_for_clarification", {
-                "candidate_plant_ids": ["ES-03", "ES-08"]
+            ("request_quote", {
+                "supplier_id": scenario["requested_supplier_id"],
+                "material_id": scenario["material_id"],
+                "quantity": scenario["quantity"],
+                "unit": scenario["unit"],
+                "required_date": scenario["required_date"],
             }),
-            ("can_fulfill_material_request", {
-                "material_id": "MAT-1842",
-                "quantity": 350,
-                "unit": "kg",
-                "required_date": "2026-10-15",
-                "plant_id": "ES-08",
+            ("get_delivery_options", {
+                "quote_id": quote["quote_id"],
+                "destination": scenario["destination"],
+            }),
+            ("submit_procurement_plan", {
+                "quote_id": best["quote_id"],
+                "delivery_option_id": best["delivery_option_id"],
             }),
         ])
 
@@ -172,7 +179,7 @@ class EvaluatorTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["steps"], 3)
         self.assertEqual(result["usage"]["total_tokens"], 45)
-        self.assertEqual(backend.messages[2][-1]["role"], "user")
+        self.assertEqual(backend.messages[2][-1]["role"], "tool")
 
 
 if __name__ == "__main__":

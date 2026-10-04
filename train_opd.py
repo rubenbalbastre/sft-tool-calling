@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-from src.environment.tools import check_location, ask_for_clarification, request_new_location, can_fulfill_material_request
+from src.environment.procurement.tools import TOOL_FUNCTIONS
 from src.training.setup import load_model_and_tokenizer, setup
 from src.training.lora import build_lora_config
 from src.training.preprocessing import prepare_opd_source
@@ -72,7 +72,7 @@ def main(args):
         model=model,
         teacher_model=teacher_model,
         processing_class=tokenizer,
-        tools=[check_location, ask_for_clarification, request_new_location, can_fulfill_material_request],
+        tools=TOOL_FUNCTIONS,
         args=config,
         train_dataset=train_dataset,
         eval_dataset=validation_dataset,

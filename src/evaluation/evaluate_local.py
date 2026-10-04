@@ -16,9 +16,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.data_generation.generate_sft_data import generate
-from src.environment.env import SupplyChainEnvironment
-from src.environment.tools import CHAT_TOOLS, TOOLS
+from src.environment.procurement import (
+    CHAT_TOOLS,
+    TOOLS,
+    ProcurementEnvironment,
+    generate_scenarios,
+)
 from src.evaluation.common import (
     DEFAULT_PROMPT,
     create_run_directory,
@@ -108,7 +111,7 @@ def continue_conversation(messages, assistant_message, call, observation):
 class TransformersBackend:
     def __init__(
         self, model_path, max_new_tokens, device,
-        enable_thinking, reasoning_effort,
+        enable_thinking, reasoning_effort, temperature,
     ):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -117,6 +120,7 @@ class TransformersBackend:
         self.max_new_tokens = max_new_tokens
         self.enable_thinking = enable_thinking
         self.reasoning_effort = reasoning_effort
+        self.temperature = temperature
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -139,11 +143,16 @@ class TransformersBackend:
         input_length = inputs["input_ids"].shape[-1]
 
         with self.torch.inference_mode():
+            generation_config = {
+                "do_sample": self.temperature > 0,
+                "max_new_tokens": self.max_new_tokens,
+                "pad_token_id": self.tokenizer.eos_token_id,
+            }
+            if self.temperature > 0:
+                generation_config["temperature"] = self.temperature
             output = self.model.generate(
                 **inputs,
-                do_sample=False,
-                max_new_tokens=self.max_new_tokens,
-                pad_token_id=self.tokenizer.eos_token_id,
+                **generation_config,
             )
 
         generated_ids = output[0, input_length:]
@@ -164,7 +173,7 @@ class TransformersBackend:
 class VLLMBackend:
     def __init__(
         self, model, base_url, api_key, max_new_tokens,
-        enable_thinking, reasoning_effort,
+        enable_thinking, reasoning_effort, temperature,
     ):
         from openai import AsyncOpenAI
 
@@ -172,6 +181,7 @@ class VLLMBackend:
         self.max_new_tokens = max_new_tokens
         self.enable_thinking = enable_thinking
         self.reasoning_effort = reasoning_effort
+        self.temperature = temperature
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
     async def generate(self, messages):
@@ -181,7 +191,7 @@ class VLLMBackend:
             tools=chat_tools(),
             tool_choice="auto",
             parallel_tool_calls=False,
-            temperature=0,
+            temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_body={
                 "chat_template_kwargs": {
@@ -206,8 +216,8 @@ async def run_episode(
 ):
     """Run one ordered episode while allowing other episodes to make progress."""
     scenario = row["scenario"]
-    user_request = row["messages"][0]["content"]
-    env = SupplyChainEnvironment(scenario, user_request)
+    user_request = scenario["user_request"]
+    env = ProcurementEnvironment(scenario, max_steps=max_steps)
     env.reset()
     messages = [
         {"role": "system", "content": prompt},
@@ -237,18 +247,21 @@ async def run_episode(
 
             call = calls[0]
             action = normalize_call(call)
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             trace.append({
                 "step": step_number,
                 "action": action,
+                "observation": observation,
                 "reward": reward,
                 "state": env.state,
             })
         except Exception as error:
             output_error = output_error or f"Inference error: {error}"
-            _, _, done, info = env.step(
+            _, _, terminated, truncated, info = env.step(
                 {"name": "invalid_model_output", "arguments": {}}
             )
+            done = terminated or truncated
             trace.append({"step": step_number, "error": output_error})
 
         if done:
@@ -265,7 +278,7 @@ async def run_episode(
 
         continue_conversation(messages, assistant_message, call, observation)
 
-    _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
+    _, _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
     return episode_result(
         scenario,
         info,
@@ -296,6 +309,8 @@ def resolve_model_path(model):
 def main(args):
     if args.backend not in {"transformers", "vllm"}:
         raise ValueError("backend must be 'transformers' or 'vllm'")
+    if args.temperature < 0:
+        raise ValueError("temperature must be non-negative")
 
     model = resolve_model_path(args.model)
     output_root = PROJECT_ROOT / args.output_root
@@ -318,6 +333,7 @@ def main(args):
             args.device,
             args.enable_thinking,
             args.reasoning_effort,
+            args.temperature,
         )
     else:
         server = VLLMServer(
@@ -337,12 +353,16 @@ def main(args):
                 args.max_new_tokens,
                 args.enable_thinking,
                 args.reasoning_effort,
+                args.temperature,
             )
         except Exception:
             server.stop()
             raise
 
-    rows = generate(args.episodes, "evaluation", args.seed)
+    rows = [
+        {"scenario": scenario}
+        for scenario in generate_scenarios(args.episodes, "evaluation", args.seed)
+    ]
     try:
         concurrency = args.concurrency if args.backend == "vllm" else 1
         if concurrency < 1:
