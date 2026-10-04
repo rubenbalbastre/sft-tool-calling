@@ -23,6 +23,12 @@ HF_HUB_CACHE="$HF_HOME/hub"
 # echo "Generating data..."
 # "$PYTHON" generate_data.py
 
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_openai \
+  --model gpt-5.6-luna \
+  --episodes 5 \
+  --seed 1234
+
 # echo "Evaluating base model..."
 # "$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
 
