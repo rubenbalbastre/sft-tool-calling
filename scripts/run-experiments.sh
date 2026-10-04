@@ -17,11 +17,14 @@ OPD_RUN="${SFT_RUN}-opd"
 SFT_MODEL="$REPOSITORY_ROOT/outputs/$SFT_RUN/final_model"
 OPD_MODEL="$REPOSITORY_ROOT/outputs/$OPD_RUN/final_model"
 
-echo "Generating data..."
-"$PYTHON" generate_data.py
+HF_HOME=/root/sft-tool-calling/.cache/huggingface
+HF_HUB_CACHE="$HF_HOME/hub"
 
-echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
+# echo "Generating data..."
+# "$PYTHON" generate_data.py
+
+# echo "Evaluating base model..."
+# "$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
 
 echo "Training SFT model..."
 "$PYTHON" train_sft.py \
