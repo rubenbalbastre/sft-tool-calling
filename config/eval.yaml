@@ -5,6 +5,7 @@ episodes: 5
 seed: 1234
 max_steps: 20
 max_new_tokens: 256
+temperature: 0.0
 enable_thinking: false
 reasoning_effort: "none"
 concurrency: 8 # Maximum simultaneous vLLM inference requests.

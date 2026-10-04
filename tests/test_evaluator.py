@@ -135,6 +135,9 @@ class EvaluatorTest(unittest.TestCase):
             request["reasoning"] == {"effort": "none"}
             for request in responses.requests
         ))
+        self.assertTrue(all(
+            request["temperature"] == 0.0 for request in responses.requests
+        ))
 
     def test_direct_supplier_local_rollout(self):
         scenario = generate_scenarios(1, "test", 88)[0]

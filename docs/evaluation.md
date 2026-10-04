@@ -23,6 +23,7 @@ Set `OPENAI_API_KEY` in the shell or `.env`, then run:
 python -m src.evaluation.evaluate_openai \
   --model gpt-5.4-nano \
   --reasoning-effort none \
+  --temperature 0 \
   --episodes 100
 ```
 
@@ -73,7 +74,12 @@ defaults explicitly disable thinking and select `none` reasoning effort:
 ```yaml
 enable_thinking: false
 reasoning_effort: "none"
+temperature: 0.0
 ```
+
+`temperature` controls decoding randomness for both local backends. At `0.0`,
+Transformers uses greedy decoding and vLLM receives zero temperature. A positive
+value enables sampling in Transformers.
 
 The OpenAI evaluator exposes reasoning effort through its existing
 `--reasoning-effort` argument; `enable_thinking` is a local chat-template

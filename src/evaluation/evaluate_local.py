@@ -111,7 +111,7 @@ def continue_conversation(messages, assistant_message, call, observation):
 class TransformersBackend:
     def __init__(
         self, model_path, max_new_tokens, device,
-        enable_thinking, reasoning_effort,
+        enable_thinking, reasoning_effort, temperature,
     ):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -120,6 +120,7 @@ class TransformersBackend:
         self.max_new_tokens = max_new_tokens
         self.enable_thinking = enable_thinking
         self.reasoning_effort = reasoning_effort
+        self.temperature = temperature
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -142,11 +143,16 @@ class TransformersBackend:
         input_length = inputs["input_ids"].shape[-1]
 
         with self.torch.inference_mode():
+            generation_config = {
+                "do_sample": self.temperature > 0,
+                "max_new_tokens": self.max_new_tokens,
+                "pad_token_id": self.tokenizer.eos_token_id,
+            }
+            if self.temperature > 0:
+                generation_config["temperature"] = self.temperature
             output = self.model.generate(
                 **inputs,
-                do_sample=False,
-                max_new_tokens=self.max_new_tokens,
-                pad_token_id=self.tokenizer.eos_token_id,
+                **generation_config,
             )
 
         generated_ids = output[0, input_length:]
@@ -167,7 +173,7 @@ class TransformersBackend:
 class VLLMBackend:
     def __init__(
         self, model, base_url, api_key, max_new_tokens,
-        enable_thinking, reasoning_effort,
+        enable_thinking, reasoning_effort, temperature,
     ):
         from openai import AsyncOpenAI
 
@@ -175,6 +181,7 @@ class VLLMBackend:
         self.max_new_tokens = max_new_tokens
         self.enable_thinking = enable_thinking
         self.reasoning_effort = reasoning_effort
+        self.temperature = temperature
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
     async def generate(self, messages):
@@ -184,7 +191,7 @@ class VLLMBackend:
             tools=chat_tools(),
             tool_choice="auto",
             parallel_tool_calls=False,
-            temperature=0,
+            temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_body={
                 "chat_template_kwargs": {
@@ -302,6 +309,8 @@ def resolve_model_path(model):
 def main(args):
     if args.backend not in {"transformers", "vllm"}:
         raise ValueError("backend must be 'transformers' or 'vllm'")
+    if args.temperature < 0:
+        raise ValueError("temperature must be non-negative")
 
     model = resolve_model_path(args.model)
     output_root = PROJECT_ROOT / args.output_root
@@ -324,6 +333,7 @@ def main(args):
             args.device,
             args.enable_thinking,
             args.reasoning_effort,
+            args.temperature,
         )
     else:
         server = VLLMServer(
@@ -343,6 +353,7 @@ def main(args):
                 args.max_new_tokens,
                 args.enable_thinking,
                 args.reasoning_effort,
+                args.temperature,
             )
         except Exception:
             server.stop()

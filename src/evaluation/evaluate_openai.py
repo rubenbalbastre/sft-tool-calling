@@ -58,7 +58,9 @@ def add_usage(total, response):
     total["total_tokens"] += usage.total_tokens
 
 
-def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
+def run_episode(
+    client, row, model, prompt, reasoning_effort, max_steps, temperature=0.0
+):
     scenario = row["scenario"]
     user_request = scenario["user_request"]
     env = ProcurementEnvironment(scenario, max_steps=max_steps)
@@ -78,6 +80,8 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
             "parallel_tool_calls": False,
             "reasoning": {"effort": reasoning_effort},
         }
+        if reasoning_effort == "none":
+            request["temperature"] = temperature
         if previous_response_id:
             request["previous_response_id"] = previous_response_id
         try:
@@ -151,6 +155,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gpt-5.4-nano")
     parser.add_argument("--reasoning-effort", default="none")
+    parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--max-steps", type=int, default=20)
@@ -160,6 +165,12 @@ def main():
         default=PROJECT_ROOT / "data" / "evals",
     )
     args = parser.parse_args()
+    if not 0 <= args.temperature <= 2:
+        parser.error("--temperature must be between 0 and 2")
+    if args.reasoning_effort != "none" and args.temperature != 0:
+        parser.error(
+            "--temperature is only supported when --reasoning-effort=none"
+        )
 
     from openai import OpenAI
     from dotenv import load_dotenv
@@ -170,6 +181,7 @@ def main():
     config = {
         "model": args.model,
         "reasoning_effort": args.reasoning_effort,
+        "temperature": args.temperature,
         "episodes": args.episodes,
         "seed": args.seed,
         "max_steps": args.max_steps,
@@ -186,7 +198,13 @@ def main():
     results = []
     for index, row in enumerate(rows, 1):
         result = run_episode(
-            client, row, args.model, prompt, args.reasoning_effort, args.max_steps
+            client,
+            row,
+            args.model,
+            prompt,
+            args.reasoning_effort,
+            args.max_steps,
+            args.temperature,
         )
         results.append(result)
         print(
