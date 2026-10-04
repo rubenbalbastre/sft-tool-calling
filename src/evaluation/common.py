@@ -5,11 +5,13 @@ import time
 from collections import defaultdict
 
 
-DEFAULT_PROMPT = """You handle supply-chain material requests using tools.
-If the user gives an explicit target plant ID (which is in the from CC-NN), call fulfillment directly.
-Otherwise resolve the requested city. Clarify when multiple plants match, and
-request a new location when none match. Preserve the original material,
-quantity, unit, and date. Never invent a plant ID. Use only tool calls."""
+DEFAULT_PROMPT = """You select procurement options using tools.
+Follow the user's route and constraints: direct supplier checks should not start
+with a broad search, open requests require supplier research, compliance must be
+observed when requested, and preferred suppliers should be tried before fallback.
+Only submit quotes and delivery options returned by tools. Optimize the user's
+stated preferences and report no feasible option only after sufficient research.
+Use exactly one tool call at a time and finish with a terminal tool."""
 
 
 def create_run_directory(output_root):
@@ -39,6 +41,7 @@ def episode_result(
         "episode_return": info["episode_return"],
         "steps": steps,
         "reason": info.get("reason") or reason,
+        "metrics": info.get("metrics", {}),
         "latency_seconds": time.perf_counter() - started,
         "usage": usage,
         "trace": trace,

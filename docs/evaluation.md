@@ -1,6 +1,6 @@
 # Evaluation
 
-Both evaluators run fresh hidden scenarios through the same multi-turn
+Both evaluators run fresh seeded procurement scenarios through the same
 environment. Results are written to numbered directories:
 
 ```text
@@ -11,8 +11,9 @@ data/evals/eval-0001/
 └── vllm.log          # vLLM runs only
 ```
 
-`results.jsonl` contains complete episode traces. `results.json` adds aggregate
-and per-trajectory metrics, token totals, and latency.
+`results.jsonl` contains prompts, complete episode traces, terminal feasibility
+and utility metrics. `results.json` adds aggregate and per-task-type metrics,
+token totals, and latency.
 
 ## OpenAI models
 
@@ -22,7 +23,7 @@ Set `OPENAI_API_KEY` in the shell or `.env`, then run:
 python -m src.evaluation.evaluate_openai \
   --model gpt-5.4-nano \
   --reasoning-effort none \
-  --episodes 20
+  --episodes 100
 ```
 
 This performs paid API calls. Start with a small episode count. Use the same
@@ -43,7 +44,7 @@ python -m src.evaluation.evaluate_local \
   backend=transformers \
   model=outputs/my-run/final_model \
   device=auto \
-  episodes=20
+  episodes=100
 ```
 
 ### vLLM

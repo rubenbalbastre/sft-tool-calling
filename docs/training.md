@@ -32,6 +32,13 @@ instead of creating a second adapter.
 
 ## OPD generation
 
+The procurement tools are stateful: quotes and delivery options belong to one
+seeded environment episode. The tool schemas are registered with the current
+TRL trainer, but correct online tool execution requires an adapter that routes
+each rollout to its own `ProcurementEnvironment`. Until that adapter is added,
+use the OPD prompt splits for rollout experiments rather than treating the
+plain callable tool loop as environment-verified training.
+
 `train.enable_thinking` in [`config/train_opd.yaml`](../config/train_opd.yaml)
 is passed to the model chat template for rollout generation. It defaults to
 `false` so reasoning tokens are disabled explicitly instead of relying on each

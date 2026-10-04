@@ -1,4 +1,4 @@
-"""Evaluate an OpenAI model and prompt on the supply-chain environment."""
+"""Evaluate an OpenAI model and prompt on the procurement environment."""
 
 import argparse
 import json
@@ -12,9 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.data_generation.generate_sft_data import generate
-from src.environment.env import SupplyChainEnvironment
-from src.environment.tools import TOOLS
+from src.environment.procurement import TOOLS, ProcurementEnvironment, generate_scenarios
 from src.evaluation.common import (
     DEFAULT_PROMPT,
     create_run_directory,
@@ -62,8 +60,8 @@ def add_usage(total, response):
 
 def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
     scenario = row["scenario"]
-    user_request = row["messages"][0]["content"]
-    env = SupplyChainEnvironment(scenario, user_request)
+    user_request = scenario["user_request"]
+    env = ProcurementEnvironment(scenario, max_steps=max_steps)
     env.reset()
     trace = []
     usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
@@ -85,7 +83,7 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
         try:
             response = client.responses.create(**request)
         except Exception as error:
-            _, _, _, info = env.step({
+            _, _, _, _, info = env.step({
                 "name": "invalid_model_output", "arguments": {}
             })
             return episode_result(
@@ -102,16 +100,19 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
         call, output_error = response_call(response)
 
         if output_error:
-            observation, reward, done, info = env.step({
+            observation, reward, terminated, truncated, info = env.step({
                 "name": "invalid_model_output", "arguments": {}
             })
+            done = terminated or truncated
             trace.append({"step": step_number, "error": output_error})
         else:
             action = {"name": call.name, "arguments": call.arguments}
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             trace.append({
                 "step": step_number,
                 "action": action,
+                "observation": observation,
                 "reward": reward,
                 "state": env.state,
             })
@@ -131,7 +132,7 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
         previous_response_id = response.id
         model_input = next_input(call, observation)
 
-    _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
+    _, _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
     return episode_result(
         scenario,
         info,
@@ -150,7 +151,7 @@ def main():
     parser.add_argument("--reasoning-effort", default="none")
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--seed", type=int, default=1234)
-    parser.add_argument("--max-steps", type=int, default=10)
+    parser.add_argument("--max-steps", type=int, default=20)
     parser.add_argument(
         "--output-root",
         type=Path,
@@ -175,7 +176,10 @@ def main():
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     save_config(run_directory, config)
-    rows = generate(args.episodes, "evaluation", args.seed)
+    rows = [
+        {"scenario": scenario}
+        for scenario in generate_scenarios(args.episodes, "evaluation", args.seed)
+    ]
     client = OpenAI()
     results = []
     for index, row in enumerate(rows, 1):

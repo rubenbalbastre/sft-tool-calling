@@ -16,9 +16,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.data_generation.generate_sft_data import generate
-from src.environment.env import SupplyChainEnvironment
-from src.environment.tools import CHAT_TOOLS, TOOLS
+from src.environment.procurement import (
+    CHAT_TOOLS,
+    TOOLS,
+    ProcurementEnvironment,
+    generate_scenarios,
+)
 from src.evaluation.common import (
     DEFAULT_PROMPT,
     create_run_directory,
@@ -206,8 +209,8 @@ async def run_episode(
 ):
     """Run one ordered episode while allowing other episodes to make progress."""
     scenario = row["scenario"]
-    user_request = row["messages"][0]["content"]
-    env = SupplyChainEnvironment(scenario, user_request)
+    user_request = scenario["user_request"]
+    env = ProcurementEnvironment(scenario, max_steps=max_steps)
     env.reset()
     messages = [
         {"role": "system", "content": prompt},
@@ -237,18 +240,21 @@ async def run_episode(
 
             call = calls[0]
             action = normalize_call(call)
-            observation, reward, done, info = env.step(action)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
             trace.append({
                 "step": step_number,
                 "action": action,
+                "observation": observation,
                 "reward": reward,
                 "state": env.state,
             })
         except Exception as error:
             output_error = output_error or f"Inference error: {error}"
-            _, _, done, info = env.step(
+            _, _, terminated, truncated, info = env.step(
                 {"name": "invalid_model_output", "arguments": {}}
             )
+            done = terminated or truncated
             trace.append({"step": step_number, "error": output_error})
 
         if done:
@@ -265,7 +271,7 @@ async def run_episode(
 
         continue_conversation(messages, assistant_message, call, observation)
 
-    _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
+    _, _, _, _, info = env.step({"name": "invalid_model_output", "arguments": {}})
     return episode_result(
         scenario,
         info,
@@ -342,7 +348,10 @@ def main(args):
             server.stop()
             raise
 
-    rows = generate(args.episodes, "evaluation", args.seed)
+    rows = [
+        {"scenario": scenario}
+        for scenario in generate_scenarios(args.episodes, "evaluation", args.seed)
+    ]
     try:
         concurrency = args.concurrency if args.backend == "vllm" else 1
         if concurrency < 1:

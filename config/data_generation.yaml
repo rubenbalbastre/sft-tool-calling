@@ -10,7 +10,7 @@ splits:
 
 hub:
   push: false
-  repo_id: rubenbalbastre/supply-chain-tool-calling # e.g. "your-account/supply-chain-tool-calling"
+  repo_id: rubenbalbastre/procurement-tool-calling # e.g. "your-account/procurement-tool-calling"
   config_name: "default"
   private: false
   token_env: "HF_TOKEN"

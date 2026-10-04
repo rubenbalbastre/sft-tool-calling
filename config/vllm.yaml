@@ -1,4 +1,4 @@
-served-model-name: "supply-chain"
+served-model-name: "procurement-agent"
 enable-auto-tool-choice: true
 tool-call-parser: "hermes"
 generation-config: "vllm"

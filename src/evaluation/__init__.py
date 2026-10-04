@@ -1,1 +1,1 @@
-"""Model evaluation utilities for the supply-chain environment."""
+"""Model evaluation utilities for the procurement environment."""

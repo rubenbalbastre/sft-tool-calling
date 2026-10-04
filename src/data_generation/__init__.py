@@ -1,1 +1,1 @@
-"""Dataset generation code for the supply-chain environment."""
+"""Dataset generation code for the procurement environment."""
