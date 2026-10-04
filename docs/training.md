@@ -54,9 +54,11 @@ templates such as Gemma's and includes the tool definitions. The source column
 is renamed before trainer preparation so TRL tokenizes the rendered text instead
 of detecting and rendering the original messages a second time.
 
-`train.enable_thinking` is also passed directly to that chat-template call. It
-defaults to `false` because the supervised trajectories contain tool actions but
-no reasoning traces.
+`train.enable_thinking` and `train.reasoning_effort` are also passed directly to
+that chat-template call. They default to `false` and `none` because the
+supervised trajectories contain tool actions but no reasoning traces. These
+arguments are model-template-specific and are ignored by templates that do not
+support them.
 
 ## Outputs and experiment tracking
 

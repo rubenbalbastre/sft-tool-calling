@@ -23,7 +23,9 @@ def deserialize_tool_arguments(messages):
     return normalized
 
 
-def format_sft_example(example, tokenizer, enable_thinking):
+def format_sft_example(
+    example, tokenizer, enable_thinking, reasoning_effort
+):
     """Render one stored conversation with model-compatible tool arguments."""
     return tokenizer.apply_chat_template(
         deserialize_tool_arguments(example["source_messages"]),
@@ -31,6 +33,7 @@ def format_sft_example(example, tokenizer, enable_thinking):
         tokenize=False,
         add_generation_prompt=False,
         enable_thinking=enable_thinking,
+        reasoning_effort=reasoning_effort,
     )
 
 

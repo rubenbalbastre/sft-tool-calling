@@ -84,6 +84,7 @@ def main(args):
             format_sft_example,
             tokenizer=tokenizer,
             enable_thinking=args.train.enable_thinking,
+            reasoning_effort=args.train.reasoning_effort,
         ),
         peft_config=peft_config,
     )

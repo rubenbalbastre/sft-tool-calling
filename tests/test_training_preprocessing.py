@@ -18,11 +18,15 @@ class TrainingPreprocessingTest(unittest.TestCase):
         }
 
         rendered = format_sft_example(
-            example, tokenizer=tokenizer, enable_thinking=False
+            example,
+            tokenizer=tokenizer,
+            enable_thinking=False,
+            reasoning_effort="none",
         )
 
         self.assertEqual(rendered, "rendered")
         self.assertFalse(tokenizer.kwargs["enable_thinking"])
+        self.assertEqual(tokenizer.kwargs["reasoning_effort"], "none")
         self.assertFalse(tokenizer.kwargs["add_generation_prompt"])
         self.assertFalse(tokenizer.kwargs["tokenize"])
 

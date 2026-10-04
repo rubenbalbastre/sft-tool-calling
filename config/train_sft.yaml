@@ -17,6 +17,7 @@ train:
   per_device_eval_batch_size: 32 # 16
   max_seq_length: 1024
   enable_thinking: false
+  reasoning_effort: "none"
   learning_rate: 2e-5
   max_steps: 80 # 1000
   use_cpu: false # false
