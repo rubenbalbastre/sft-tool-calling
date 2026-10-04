@@ -30,6 +30,12 @@ python -m src.evaluation.evaluate_openai \
 This performs paid API calls. Start with a small episode count. Use the same
 seed and episode count when comparing models or prompts.
 
+The OpenAI evaluator reads its defaults from `config/eval.yaml`. It shares
+`openai_model`, `episodes`, `seed`, `max_steps`, `reasoning_effort`,
+`temperature`, and `output_root` with that configuration; command-line options
+override them. Local-only backend, device, concurrency, quantization, and chat
+template settings are ignored.
+
 ## Local models
 
 [`evaluate_local.py`](../src/evaluation/evaluate_local.py) reads

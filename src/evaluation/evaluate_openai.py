@@ -7,6 +7,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from omegaconf import OmegaConf
+
 # Direct execution adds evaluation/ to sys.path, not the repository root.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -56,6 +58,20 @@ def add_usage(total, response):
     total["input_tokens"] += usage.input_tokens
     total["output_tokens"] += usage.output_tokens
     total["total_tokens"] += usage.total_tokens
+
+
+def load_eval_defaults():
+    """Load the settings shared by local and OpenAI evaluation."""
+    config = OmegaConf.load(PROJECT_ROOT / "config" / "eval.yaml")
+    return {
+        "model": config.openai_model,
+        "reasoning_effort": config.reasoning_effort,
+        "temperature": float(config.temperature),
+        "episodes": int(config.episodes),
+        "seed": int(config.seed),
+        "max_steps": int(config.max_steps),
+        "output_root": PROJECT_ROOT / config.output_root,
+    }
 
 
 def run_episode(
@@ -152,17 +168,22 @@ def run_episode(
 
 
 def main():
+    defaults = load_eval_defaults()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default="gpt-5.4-nano")
-    parser.add_argument("--reasoning-effort", default="none")
-    parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--episodes", type=int, default=5)
-    parser.add_argument("--seed", type=int, default=1234)
-    parser.add_argument("--max-steps", type=int, default=20)
+    parser.add_argument("--model", default=defaults["model"])
+    parser.add_argument(
+        "--reasoning-effort", default=defaults["reasoning_effort"]
+    )
+    parser.add_argument(
+        "--temperature", type=float, default=defaults["temperature"]
+    )
+    parser.add_argument("--episodes", type=int, default=defaults["episodes"])
+    parser.add_argument("--seed", type=int, default=defaults["seed"])
+    parser.add_argument("--max-steps", type=int, default=defaults["max_steps"])
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=PROJECT_ROOT / "data" / "evals",
+        default=defaults["output_root"],
     )
     args = parser.parse_args()
     if not 0 <= args.temperature <= 2:

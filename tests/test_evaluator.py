@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from src.evaluation.common import create_run_directory, summarize
-from src.evaluation.evaluate_openai import run_episode
+from src.evaluation.evaluate_openai import load_eval_defaults, run_episode
 from src.evaluation.evaluate_local import (
     parse_transformers_response,
     run_episode as run_local_episode,
@@ -64,6 +64,12 @@ class SmolLM3TokenizerWithoutResponseTemplate:
 
 
 class EvaluatorTest(unittest.TestCase):
+    def test_openai_evaluator_uses_shared_defaults(self):
+        defaults = load_eval_defaults()
+        self.assertEqual(defaults["reasoning_effort"], "medium")
+        self.assertEqual(defaults["temperature"], 0.0)
+        self.assertEqual(defaults["episodes"], 5)
+
     def test_openai_tool_schemas_are_strict(self):
         for tool in TOOLS:
             parameters = tool["parameters"]
