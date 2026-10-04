@@ -80,7 +80,12 @@ def main(args):
         train_dataset=train_dataset,
         eval_dataset=validation_dataset,
         callbacks=callbacks,
-        formatting_func=partial(format_sft_example, tokenizer=tokenizer),
+        formatting_func=partial(
+            format_sft_example,
+            tokenizer=tokenizer,
+            enable_thinking=args.train.enable_thinking,
+            reasoning_effort=args.train.reasoning_effort,
+        ),
         peft_config=peft_config,
     )
     print("Trainer initialized successfully.")
