@@ -54,6 +54,10 @@ templates such as Gemma's and includes the tool definitions. The source column
 is renamed before trainer preparation so TRL tokenizes the rendered text instead
 of detecting and rendering the original messages a second time.
 
+`train.enable_thinking` is also passed directly to that chat-template call. It
+defaults to `false` because the supervised trajectories contain tool actions but
+no reasoning traces.
+
 ## Outputs and experiment tracking
 
 Each run writes to an `outputs/<wandb-run-name>/` directory containing:
