@@ -1,5 +1,7 @@
 """Model-facing tools for procurement option selection."""
 
+from copy import deepcopy
+
 from transformers.utils import get_json_schema
 
 
@@ -75,4 +77,23 @@ for tool in CHAT_TOOLS:
     parameters.setdefault("required", [])
     parameters["additionalProperties"] = False
 
-TOOLS = [{"type": "function", **tool["function"], "strict": True} for tool in CHAT_TOOLS]
+
+def _openai_parameters(parameters):
+    """Convert Transformers schemas to OpenAI strict-function schemas."""
+    parameters = deepcopy(parameters)
+    for property_schema in parameters.get("properties", {}).values():
+        if property_schema.pop("nullable", False):
+            property_schema["type"] = [property_schema["type"], "null"]
+    parameters["required"] = list(parameters.get("properties", {}))
+    return parameters
+
+
+TOOLS = [
+    {
+        "type": "function",
+        **tool["function"],
+        "parameters": _openai_parameters(tool["function"]["parameters"]),
+        "strict": True,
+    }
+    for tool in CHAT_TOOLS
+]

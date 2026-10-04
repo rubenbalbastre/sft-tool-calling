@@ -83,6 +83,8 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
         try:
             response = client.responses.create(**request)
         except Exception as error:
+            error_message = f"API error: {error}"
+            trace.append({"step": step_number, "error": error_message})
             _, _, _, _, info = env.step({
                 "name": "invalid_model_output", "arguments": {}
             })
@@ -93,7 +95,7 @@ def run_episode(client, row, model, prompt, reasoning_effort, max_steps):
                 started,
                 usage,
                 trace,
-                f"API error: {error}",
+                error_message,
                 user_prompt=user_request,
             )
         add_usage(usage, response)

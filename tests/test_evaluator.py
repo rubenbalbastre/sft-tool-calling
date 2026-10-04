@@ -64,6 +64,14 @@ class SmolLM3TokenizerWithoutResponseTemplate:
 
 
 class EvaluatorTest(unittest.TestCase):
+    def test_openai_tool_schemas_are_strict(self):
+        for tool in TOOLS:
+            parameters = tool["parameters"]
+            self.assertEqual(
+                set(parameters["required"]), set(parameters["properties"])
+            )
+            self.assertFalse(parameters["additionalProperties"])
+
     def test_vllm_quantization_arguments(self):
         self.assertEqual(quantization_arguments("none"), [])
         self.assertEqual(
