@@ -17,6 +17,7 @@ uv venv .venv --python python3
 PROJECT_UV_CACHE="${TMPDIR:-/tmp}/sft-tool-calling-uv-cache"
 mkdir -p "$PROJECT_UV_CACHE"
 UV_CACHE_DIR="$PROJECT_UV_CACHE" UV_LINK_MODE=copy \
-    uv pip install --python .venv/bin/python -r requirements.txt
+    uv pip install --python .venv/bin/python --torch-backend=auto \
+        -r requirements.txt
 
 echo "Virtual environment created and dependencies installed."
