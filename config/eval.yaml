@@ -2,7 +2,7 @@ backend: "transformers" # transformers or vllm
 model: "outputs/breezy-surf-7/final_model"
 openai_model: "gpt-5.6-luna"
 
-episodes: 5
+episodes: 20
 seed: 1234
 max_steps: 20
 max_new_tokens: 1024
