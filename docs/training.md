@@ -30,6 +30,35 @@ python train_opd.py lora.enabled=false
 When OPD starts from an existing PEFT model, it continues the loaded adapter
 instead of creating a second adapter.
 
+SFT rendering prepends the same procurement system prompt used during
+evaluation. The stored dataset remains prompt-agnostic; the instruction is
+added when the model-specific chat template is applied.
+
+The default SFT sequence limit is 8,192 tokens so complete multi-tool
+trajectories are retained. Padding tokens receive an attention mask of zero;
+system, user, assistant, and tool tokens that fit in the sequence receive an
+attention mask of one. A physical batch size of one avoids padding and memory
+overhead, while gradient accumulation preserves an effective batch of 16.
+
+## Publishing a model
+
+Upload a saved model or LoRA adapter to its own Hugging Face model repository
+and register it in the project collection:
+
+```bash
+python scripts/publish-model.py \
+  outputs/my-run/final_model
+```
+
+The script reads `HF_TOKEN` or `HUGGINGFACE_API_KEY` from the environment or
+`.env`. By default, this example publishes to
+`rubenbalbastre/procurement-function-calling-my-run`. A different repository ID
+can be passed as the second positional argument. The script creates the
+repository if needed, adds a basic model card when no `README.md` exists,
+supports repeat uploads, and keeps the local directory unchanged. Use
+`--private` for a private repository and `--note` to attach a short description
+to the collection entry.
+
 ## OPD generation
 
 The procurement tools are stateful: quotes and delivery options belong to one

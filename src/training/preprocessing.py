@@ -2,7 +2,7 @@
 
 import json
 
-from src.environment.procurement import CHAT_TOOLS
+from src.environment.procurement import CHAT_TOOLS, SYSTEM_PROMPT
 
 
 def deserialize_tool_arguments(messages):
@@ -27,8 +27,12 @@ def format_sft_example(
     example, tokenizer, enable_thinking, reasoning_effort
 ):
     """Render one stored conversation with model-compatible tool arguments."""
+    messages = deserialize_tool_arguments(example["source_messages"])
+    if not messages or messages[0]["role"] != "system":
+        messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+
     return tokenizer.apply_chat_template(
-        deserialize_tool_arguments(example["source_messages"]),
+        messages,
         tools=CHAT_TOOLS,
         tokenize=False,
         add_generation_prompt=False,
