@@ -37,8 +37,14 @@ added when the model-specific chat template is applied.
 The default SFT sequence limit is 8,192 tokens so complete multi-tool
 trajectories are retained. Padding tokens receive an attention mask of zero;
 system, user, assistant, and tool tokens that fit in the sequence receive an
-attention mask of one. A physical batch size of one avoids padding and memory
-overhead, while gradient accumulation preserves an effective batch of 16.
+attention mask of one. Keep the physical batch small enough for the selected
+model and use gradient accumulation when a larger effective batch is needed.
+
+SFT loss is restricted to assistant output. For Gemma 4, preprocessing adds
+generation markers around assistant tool calls because its inference chat
+template does not provide assistant masks. Tool responses remain visible
+through the attention mask but receive label `-100`, so they do not contribute
+to the training or validation loss.
 
 ## Publishing a model
 

@@ -2,7 +2,17 @@
 
 import json
 
+from datasets import Dataset
+
 from src.environment.procurement import CHAT_TOOLS, SYSTEM_PROMPT
+
+
+GEMMA_TOOL_CALL_START = "            {%- if message['tool_calls'] -%}"
+GEMMA_TOOL_CALL_END = (
+    "                {%- set ns.prev_message_type = 'tool_call' -%}\n"
+    "            {%- endif -%}\n\n"
+    "            {%- set ns_tr_out"
+)
 
 
 def deserialize_tool_arguments(messages):
@@ -41,11 +51,50 @@ def format_sft_example(
     )
 
 
-def prepare_sft_source(dataset):
-    """Hide the conversational column so TRL tokenizes formatted text once."""
-    return dataset.select_columns(["messages"]).rename_column(
-        "messages", "source_messages"
+def enable_assistant_tool_call_mask(tokenizer):
+    """Mark Gemma 4 assistant tool calls for TRL assistant-only loss."""
+    template = tokenizer.chat_template
+    if "{% generation" in template or "{%- generation" in template:
+        return
+    if (
+        template.count(GEMMA_TOOL_CALL_START) != 1
+        or template.count(GEMMA_TOOL_CALL_END) != 1
+    ):
+        raise ValueError(
+            "The model chat template cannot produce assistant masks. "
+            "Use a template with {% generation %} markers."
+        )
+
+    template = template.replace(
+        GEMMA_TOOL_CALL_START,
+        GEMMA_TOOL_CALL_START + "\n                {%- generation -%}",
     )
+    template = template.replace(
+        GEMMA_TOOL_CALL_END,
+        "                {%- set ns.prev_message_type = 'tool_call' -%}\n"
+        "                {%- endgeneration -%}\n"
+        "            {%- endif -%}\n\n"
+        "            {%- set ns_tr_out",
+    )
+    tokenizer.chat_template = template
+
+
+def prepare_sft_source(dataset, enable_thinking, reasoning_effort):
+    """Return structured conversations so TRL can build assistant masks."""
+    rows = []
+    for example in dataset:
+        messages = deserialize_tool_arguments(example["messages"])
+        if not messages or messages[0]["role"] != "system":
+            messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+        rows.append({
+            "messages": messages,
+            "tools": json.dumps(CHAT_TOOLS),
+            "chat_template_kwargs": {
+                "enable_thinking": enable_thinking,
+                "reasoning_effort": reasoning_effort,
+            },
+        })
+    return Dataset.from_list(rows)
 
 
 def prepare_opd_source(dataset):
