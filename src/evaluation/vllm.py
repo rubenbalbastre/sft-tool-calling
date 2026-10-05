@@ -1,5 +1,6 @@
 """Lifecycle management for a local vLLM server."""
 
+import json
 import shutil
 import subprocess
 import sys
@@ -18,18 +19,36 @@ def quantization_arguments(quantization):
     raise ValueError("quantization must be 'none' or 'bnb_4bit'")
 
 
+def resolve_model_and_adapter(model):
+    """Return the base model and optional PEFT adapter metadata."""
+    adapter_config = Path(model) / "adapter_config.json"
+    if not adapter_config.is_file():
+        return model, None, None
+
+    config = json.loads(adapter_config.read_text(encoding="utf-8"))
+    base_model = config.get("base_model_name_or_path")
+    if not base_model:
+        raise ValueError(f"Missing base_model_name_or_path in {adapter_config}")
+    return base_model, str(Path(model).resolve()), int(config["r"])
+
+
 class VLLMServer:
     """Start vLLM, wait for readiness, and stop it after evaluation."""
 
     def __init__(
-        self, model, config_path, base_url, timeout, log_path, quantization=None
+        self, model, config_path, base_url, timeout, log_path,
+        served_model_name, quantization=None, adapter_path=None,
+        adapter_rank=None,
     ):
         self.model = model
         self.config_path = config_path
         self.base_url = base_url
         self.timeout = timeout
         self.log_path = log_path
+        self.served_model_name = served_model_name
         self.quantization = quantization
+        self.adapter_path = adapter_path
+        self.adapter_rank = adapter_rank
         self.process = None
         self.log_file = None
 
@@ -53,8 +72,22 @@ class VLLMServer:
             self.model,
             "--config",
             str(self.config_path),
+            "--served-model-name",
+            (
+                f"{self.served_model_name}-base"
+                if self.adapter_path
+                else self.served_model_name
+            ),
         ]
         command.extend(quantization_arguments(self.quantization))
+        if self.adapter_path:
+            command.extend([
+                "--enable-lora",
+                "--lora-modules",
+                f"{self.served_model_name}={self.adapter_path}",
+                "--max-lora-rank",
+                str(self.adapter_rank),
+            ])
 
         self.process = subprocess.Popen(
             command,

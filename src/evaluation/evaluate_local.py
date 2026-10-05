@@ -29,7 +29,7 @@ from src.evaluation.common import (
     save_config,
     save_results,
 )
-from src.evaluation.vllm import VLLMServer
+from src.evaluation.vllm import VLLMServer, resolve_model_and_adapter
 
 
 TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
@@ -114,6 +114,7 @@ class TransformersBackend:
         enable_thinking, reasoning_effort, temperature,
     ):
         import torch
+        from peft import AutoPeftModelForCausalLM
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
         self.torch = torch
@@ -122,7 +123,12 @@ class TransformersBackend:
         self.reasoning_effort = reasoning_effort
         self.temperature = temperature
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-        self.model = AutoModelForCausalLM.from_pretrained(
+        model_class = (
+            AutoPeftModelForCausalLM
+            if (Path(model_path) / "adapter_config.json").is_file()
+            else AutoModelForCausalLM
+        )
+        self.model = model_class.from_pretrained(
             model_path,
             dtype="auto",
             device_map=device,
@@ -336,13 +342,17 @@ def main(args):
             args.temperature,
         )
     else:
+        base_model, adapter_path, adapter_rank = resolve_model_and_adapter(model)
         server = VLLMServer(
-            model=model,
+            model=base_model,
             config_path=PROJECT_ROOT / args.vllm_server_config,
             base_url=args.base_url,
             timeout=args.vllm_startup_timeout,
             log_path=run_directory / "vllm.log",
+            served_model_name=args.served_model_name,
             quantization=args.quantization,
+            adapter_path=adapter_path,
+            adapter_rank=adapter_rank,
         )
         server.start()
         try:
