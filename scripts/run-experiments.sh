@@ -20,6 +20,8 @@ OPD_MODEL="$REPOSITORY_ROOT/outputs/$OPD_RUN/final_model"
 HF_HOME=/root/sft-tool-calling/.cache/huggingface
 HF_HUB_CACHE="$HF_HOME/hub"
 
+source .venv/bin/activate
+
 # echo "Generating data..."
 # "$PYTHON" generate_data.py
 
