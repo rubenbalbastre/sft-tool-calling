@@ -67,9 +67,14 @@ python -m src.evaluation.evaluate_local \
   episodes=100
 ```
 
-[`config/vllm.yaml`](../config/vllm.yaml) enables prefix caching, automatic tool
-choice, and the `hermes` tool-call parser. Requests from different episodes run
-concurrently up to `concurrency`; turns remain ordered within each episode.
+[`config/vllm.yaml`](../config/vllm.yaml) enables prefix caching and automatic
+tool choice. With `tool_call_parser=auto`, the launcher selects Gemma 4's native
+parser for Gemma 4 models and Hermes otherwise. Requests from different
+episodes run concurrently up to `concurrency`; turns remain ordered within each
+episode.
+When the selected local path contains `adapter_config.json`, the evaluator
+serves its recorded base model and mounts the directory as a native vLLM LoRA
+adapter. A merged checkpoint is not required.
 
 ## Thinking and quantization
 

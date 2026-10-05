@@ -18,6 +18,7 @@ device: "auto"
 base_url: "http://localhost:8000/v1"
 api_key: "local"
 served_model_name: "procurement-agent"
+tool_call_parser: "auto" # gemma4 for Gemma 4; hermes otherwise.
 vllm_server_config: "config/vllm.yaml"
 vllm_startup_timeout: 600
 quantization: "none" # none or bnb_4bit; checkpoint quantization is auto-detected.
