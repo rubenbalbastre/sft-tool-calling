@@ -30,6 +30,16 @@ python train_opd.py lora.enabled=false
 When OPD starts from an existing PEFT model, it continues the loaded adapter
 instead of creating a second adapter.
 
+SFT rendering prepends the same procurement system prompt used during
+evaluation. The stored dataset remains prompt-agnostic; the instruction is
+added when the model-specific chat template is applied.
+
+The default SFT sequence limit is 8,192 tokens so complete multi-tool
+trajectories are retained. Padding tokens receive an attention mask of zero;
+system, user, assistant, and tool tokens that fit in the sequence receive an
+attention mask of one. A physical batch size of one avoids padding and memory
+overhead, while gradient accumulation preserves an effective batch of 16.
+
 ## Publishing a model
 
 Upload a saved model or LoRA adapter to its own Hugging Face model repository
