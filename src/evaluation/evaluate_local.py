@@ -235,6 +235,7 @@ async def run_episode(
 
     for step_number in range(1, max_steps + 1):
         output_error = None
+        assistant_message = None
         try:
             if inference_semaphore:
                 async with inference_semaphore:
@@ -268,7 +269,11 @@ async def run_episode(
                 {"name": "invalid_model_output", "arguments": {}}
             )
             done = terminated or truncated
-            trace.append({"step": step_number, "error": output_error})
+            trace.append({
+                "step": step_number,
+                "error": output_error,
+                "assistant_message": assistant_message,
+            })
 
         if done:
             return episode_result(
@@ -350,6 +355,7 @@ def main(args):
             timeout=args.vllm_startup_timeout,
             log_path=run_directory / "vllm.log",
             served_model_name=args.served_model_name,
+            tool_call_parser=args.tool_call_parser,
             quantization=args.quantization,
             adapter_path=adapter_path,
             adapter_rank=adapter_rank,

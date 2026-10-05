@@ -32,12 +32,26 @@ def resolve_model_and_adapter(model):
     return base_model, str(Path(model).resolve()), int(config["r"])
 
 
+def resolve_tool_call_parser(model, configured_parser):
+    """Select the native parser for known model families."""
+    if configured_parser != "auto":
+        return configured_parser
+
+    model_name = str(model).lower()
+    config_path = Path(model) / "config.json"
+    if config_path.is_file():
+        model_config = json.loads(config_path.read_text(encoding="utf-8"))
+        model_name += " " + " ".join(model_config.get("architectures", []))
+
+    return "gemma4" if "gemma-4" in model_name or "gemma4" in model_name else "hermes"
+
+
 class VLLMServer:
     """Start vLLM, wait for readiness, and stop it after evaluation."""
 
     def __init__(
         self, model, config_path, base_url, timeout, log_path,
-        served_model_name, quantization=None, adapter_path=None,
+        served_model_name, tool_call_parser, quantization=None, adapter_path=None,
         adapter_rank=None,
     ):
         self.model = model
@@ -46,6 +60,7 @@ class VLLMServer:
         self.timeout = timeout
         self.log_path = log_path
         self.served_model_name = served_model_name
+        self.tool_call_parser = resolve_tool_call_parser(model, tool_call_parser)
         self.quantization = quantization
         self.adapter_path = adapter_path
         self.adapter_rank = adapter_rank
@@ -78,7 +93,11 @@ class VLLMServer:
                 if self.adapter_path
                 else self.served_model_name
             ),
+            "--tool-call-parser",
+            self.tool_call_parser,
         ]
+        if self.tool_call_parser == "gemma4":
+            command.extend(["--reasoning-parser", "gemma4"])
         command.extend(quantization_arguments(self.quantization))
         if self.adapter_path:
             command.extend([
