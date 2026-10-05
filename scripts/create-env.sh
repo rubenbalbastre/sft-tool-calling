@@ -15,10 +15,8 @@ uv venv .venv --python python3
 # default cache and clone modes. Keep the cache on local temporary storage and
 # copy packages into the environment.
 PROJECT_UV_CACHE="${TMPDIR:-/tmp}/sft-tool-calling-uv-cache"
-TORCH_BACKEND=cu130
 mkdir -p "$PROJECT_UV_CACHE"
 UV_CACHE_DIR="$PROJECT_UV_CACHE" UV_LINK_MODE=copy \
-    uv pip install --python .venv/bin/python --torch-backend="$TORCH_BACKEND" \
-        -r requirements.txt
+    uv pip install --python .venv/bin/python -r requirements.txt
 
 echo "Virtual environment created and dependencies installed."
