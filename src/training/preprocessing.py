@@ -7,12 +7,11 @@ from datasets import Dataset
 from src.environment.procurement import CHAT_TOOLS, SYSTEM_PROMPT
 
 
-GEMMA_TOOL_CALL_START = "            {%- if message['tool_calls'] -%}"
-GEMMA_TOOL_CALL_END = (
-    "                {%- set ns.prev_message_type = 'tool_call' -%}\n"
-    "            {%- endif -%}\n\n"
-    "            {%- set ns_tr_out"
+GEMMA_TOOL_CALL_STARTS = (
+    "{%- if message.get('tool_calls') -%}",
+    "{%- if message['tool_calls'] -%}",
 )
+GEMMA_TOOL_CALL_END = "{%- set ns.prev_message_type = 'tool_call' -%}"
 
 
 def deserialize_tool_arguments(messages):
@@ -56,25 +55,24 @@ def enable_assistant_tool_call_mask(tokenizer):
     template = tokenizer.chat_template
     if "{% generation" in template or "{%- generation" in template:
         return
-    if (
-        template.count(GEMMA_TOOL_CALL_START) != 1
-        or template.count(GEMMA_TOOL_CALL_END) != 1
-    ):
+
+    starts = [marker for marker in GEMMA_TOOL_CALL_STARTS if marker in template]
+    if len(starts) != 1 or template.count(GEMMA_TOOL_CALL_END) != 1:
         raise ValueError(
             "The model chat template cannot produce assistant masks. "
             "Use a template with {% generation %} markers."
         )
 
+    start = starts[0]
     template = template.replace(
-        GEMMA_TOOL_CALL_START,
-        GEMMA_TOOL_CALL_START + "\n                {%- generation -%}",
+        start,
+        start + "\n                {%- generation -%}",
+        1,
     )
     template = template.replace(
         GEMMA_TOOL_CALL_END,
-        "                {%- set ns.prev_message_type = 'tool_call' -%}\n"
-        "                {%- endgeneration -%}\n"
-        "            {%- endif -%}\n\n"
-        "            {%- set ns_tr_out",
+        GEMMA_TOOL_CALL_END + "\n                {%- endgeneration -%}",
+        1,
     )
     tokenizer.chat_template = template
 
