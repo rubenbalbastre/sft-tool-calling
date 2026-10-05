@@ -1,5 +1,4 @@
 from datasets import load_from_disk
-from functools import partial
 from trl import SFTTrainer, SFTConfig
 from transformers import EarlyStoppingCallback, set_seed
 from dotenv import load_dotenv
@@ -12,7 +11,10 @@ import wandb
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 from src.training.setup import load_model_and_tokenizer, setup
-from src.training.preprocessing import format_sft_example, prepare_sft_source
+from src.training.preprocessing import (
+    enable_assistant_tool_call_mask,
+    prepare_sft_source,
+)
 from src.training.lora import build_lora_config
 
 
@@ -31,14 +33,21 @@ def main(args):
     OmegaConf.save(args, config_dir / "train.yaml")
 
     model, tokenizer = load_model_and_tokenizer(args)
+    enable_assistant_tool_call_mask(tokenizer)
     peft_config = build_lora_config(args.lora, model)
     print("Model and tokenizer loaded successfully.")
 
     dataset_path = PROJECT_ROOT / args.dataset.file
     dataset = load_from_disk(str(dataset_path))
-    train_dataset = prepare_sft_source(dataset[args.dataset.train_split])
+    train_dataset = prepare_sft_source(
+        dataset[args.dataset.train_split],
+        args.train.enable_thinking,
+        args.train.reasoning_effort,
+    )
     validation_dataset = prepare_sft_source(
-        dataset[args.dataset.validation_split]
+        dataset[args.dataset.validation_split],
+        args.train.enable_thinking,
+        args.train.reasoning_effort,
     )
     print("Datasets loaded successfully.")
 
@@ -51,6 +60,7 @@ def main(args):
         max_steps=args.train.max_steps,
         per_device_eval_batch_size=args.train.per_device_eval_batch_size,
         max_length=args.train.max_seq_length,
+        assistant_only_loss=True,
         bf16=args.train.bf16,
         fp16=args.train.fp16,
         use_cpu=args.train.use_cpu,
@@ -78,14 +88,8 @@ def main(args):
         processing_class=tokenizer,
         args=config,
         train_dataset=train_dataset,
-        eval_dataset=validation_dataset,
+        eval_dataset=validation_dataset.select(range(100)),
         callbacks=callbacks,
-        formatting_func=partial(
-            format_sft_example,
-            tokenizer=tokenizer,
-            enable_thinking=args.train.enable_thinking,
-            reasoning_effort=args.train.reasoning_effort,
-        ),
         peft_config=peft_config,
     )
     print("Trainer initialized successfully.")
