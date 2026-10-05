@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from .database import ProcurementRepository
 from .environment import ProcurementEnvironment
+from .prompts import format_prompt
 
 
 TASK_TYPES = (
@@ -51,30 +52,6 @@ def _base_scenario(index, split, seed, attempt):
     }
 
 
-def _format_prompt(scenario):
-    common = (
-        f"We need {scenario['quantity']} {scenario['unit']} of {scenario['material_id']} "
-        f"delivered to {scenario['destination']} by {scenario['required_date']}. "
-        f"The total cost must not exceed EUR {scenario['maximum_total_cost']:.0f}, "
-        f"and delivery reliability must be at least {scenario['minimum_delivery_reliability']:.0%}. "
-    )
-    kind = scenario["task_type"]
-    if kind == "direct_supplier":
-        route = f"Check only supplier {scenario['requested_supplier_id']}. "
-    elif kind == "compliance_first":
-        route = "Use only suppliers certified to ISO-14001. "
-    elif kind == "preferred_with_fallback":
-        route = (
-            f"Try supplier {scenario['preferred_supplier_id']} first, but find another supplier "
-            "if it cannot meet the request. "
-        )
-    elif kind == "no_feasible_option":
-        route = "Report that no feasible option exists if every available option violates the constraints. "
-    else:
-        route = "Search for the best supplier option. "
-    return common + route + "Prefer lower carbon emissions, then lower cost. Use tools and finish with a submitted plan or a no-feasible-option report."
-
-
 def generate_scenarios(count, split="evaluation", seed=1234):
     """Generate valid seeded tasks with several naturally different routes."""
     repository = ProcurementRepository()
@@ -115,7 +92,7 @@ def generate_scenarios(count, split="evaluation", seed=1234):
                 else:
                     continue
 
-                scenario["user_request"] = _format_prompt(scenario)
+                scenario["user_request"] = format_prompt(scenario)
                 scenarios.append(scenario)
                 break
             else:

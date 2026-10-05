@@ -7,16 +7,24 @@ from src.data_generation.generate_sft_data import build_pipeline_dataset
 class DataGenerationTest(unittest.TestCase):
     def test_pipeline_splits_and_views(self):
         sizes = {
-            "sft_train": 6,
-            "sft_validation": 2,
-            "opd_train": 6,
-            "opd_validation": 2,
-            "test": 2,
+            "sft_train": 5,
+            "sft_validation": 1,
+            "opd_train": 5,
+            "opd_validation": 1,
+            "test": 1,
         }
-        dataset = build_pipeline_dataset(sizes, seed=42)
+        dataset = build_pipeline_dataset(
+            sizes,
+            seed=42,
+            languages=["English", "Spanish"],
+            templates_per_language=2,
+        )
 
         self.assertEqual(set(dataset), set(sizes))
-        self.assertEqual({name: len(split) for name, split in dataset.items()}, sizes)
+        self.assertEqual(
+            {name: len(split) for name, split in dataset.items()},
+            {name: count * 4 for name, count in sizes.items()},
+        )
         self.assertGreater(len(dataset["sft_train"][0]["messages"]), 1)
         self.assertEqual(len(dataset["opd_train"][0]["messages"]), 1)
         self.assertEqual(len(dataset["test"][0]["messages"]), 1)
@@ -40,6 +48,18 @@ class DataGenerationTest(unittest.TestCase):
         self.assertTrue(
             {"submit_procurement_plan", "report_no_feasible_option"} & tool_names
         )
+        for split in dataset.values():
+            self.assertEqual(set(split["language"]), {"English", "Spanish"})
+            scenario_counts = {
+                scenario_id: split["scenario_id"].count(scenario_id)
+                for scenario_id in set(split["scenario_id"])
+            }
+            self.assertTrue(all(count == 4 for count in scenario_counts.values()))
+
+        split_ids = [set(split["scenario_id"]) for split in dataset.values()]
+        for index, scenario_ids in enumerate(split_ids):
+            for other_ids in split_ids[index + 1:]:
+                self.assertTrue(scenario_ids.isdisjoint(other_ids))
 
 
 if __name__ == "__main__":

@@ -16,7 +16,14 @@ def main(config: DictConfig) -> None:
     load_dotenv(PROJECT_ROOT / ".env")
 
     split_sizes = OmegaConf.to_container(config.splits, resolve=True)
-    dataset = build_pipeline_dataset(split_sizes, int(config.seed))
+    dataset = build_pipeline_dataset(
+        split_sizes,
+        int(config.seed),
+        languages=list(config.prompt_generation.languages),
+        templates_per_language=int(
+            config.prompt_generation.templates_per_language
+        ),
+    )
 
     output_dir = PROJECT_ROOT / config.output_dir
     dataset.save_to_disk(str(output_dir))

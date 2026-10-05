@@ -1,8 +1,15 @@
 """Build procurement datasets from trajectories verified by the environment."""
 
 import json
+from copy import deepcopy
 
-from src.environment.procurement import ProcurementEnvironment, generate_scenarios
+from src.environment.procurement import (
+    LANGUAGES,
+    ProcurementEnvironment,
+    TEMPLATES_PER_LANGUAGE,
+    generate_scenarios,
+    prompt_variants,
+)
 
 
 def _tool_call(call_id, action):
@@ -106,14 +113,23 @@ def build_reference_trajectory(scenario):
     return messages
 
 
-def generate(count, split, seed):
-    """Generate seeded scenarios and their verified reference trajectories."""
+def generate(
+    count,
+    split,
+    seed,
+    languages=LANGUAGES,
+    templates_per_language=TEMPLATES_PER_LANGUAGE,
+):
+    """Generate scenarios, then expand them into grouped prompt variants."""
     rows = []
     for scenario in generate_scenarios(count, split, seed):
-        rows.append({
-            "scenario": scenario,
-            "messages": build_reference_trajectory(scenario),
-        })
+        reference_messages = build_reference_trajectory(scenario)
+        for variant in prompt_variants(
+            scenario, languages, templates_per_language
+        ):
+            messages = deepcopy(reference_messages)
+            messages[0]["content"] = variant["user_request"]
+            rows.append({"scenario": variant, "messages": messages})
     return rows
 
 
@@ -142,6 +158,7 @@ def to_pipeline_row(row, stage):
         "scenario_id": scenario["scenario_id"],
         "stage": stage,
         "language": scenario["language"],
+        "prompt_variant": scenario["prompt_variant"],
         "trajectory_type": scenario["task_type"],
         "difficulty": scenario["difficulty"],
         "tool_sequence": [
@@ -152,8 +169,13 @@ def to_pipeline_row(row, stage):
     }
 
 
-def build_pipeline_dataset(split_sizes, seed):
-    """Build the splits used by the SFT, online-training, and evaluation stages."""
+def build_pipeline_dataset(
+    split_sizes,
+    seed,
+    languages=LANGUAGES,
+    templates_per_language=TEMPLATES_PER_LANGUAGE,
+):
+    """Build split-safe prompt variants for SFT, online training, and evaluation."""
     from datasets import Dataset, DatasetDict, Features, List, Value
 
     expected_splits = (
@@ -190,6 +212,7 @@ def build_pipeline_dataset(split_sizes, seed):
         "scenario_id": Value("string"),
         "stage": Value("string"),
         "language": Value("string"),
+        "prompt_variant": Value("string"),
         "trajectory_type": Value("string"),
         "difficulty": Value("string"),
         "tool_sequence": List(Value("string")),
@@ -200,7 +223,13 @@ def build_pipeline_dataset(split_sizes, seed):
         stage = "sft" if split.startswith("sft_") else (
             "opd" if split.startswith("opd_") else "evaluation"
         )
-        rows = generate(int(split_sizes[split]), split, seed + offset)
+        rows = generate(
+            int(split_sizes[split]),
+            split,
+            seed + offset,
+            languages=languages,
+            templates_per_language=templates_per_language,
+        )
         datasets[split] = Dataset.from_list(
             [to_pipeline_row(row, stage) for row in rows], features=features
         )
