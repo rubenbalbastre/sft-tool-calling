@@ -20,17 +20,17 @@ OPD_MODEL="$REPOSITORY_ROOT/outputs/$OPD_RUN/final_model"
 HF_HOME=/root/sft-tool-calling/.cache/huggingface
 HF_HUB_CACHE="$HF_HOME/hub"
 
-# echo "Generating data..."
-# "$PYTHON" generate_data.py
-
-echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_openai \
-  --model gpt-5.6-luna \
-  --episodes 5 \
-  --seed 1234
+echo "Generating data..."
+"$PYTHON" generate_data.py
 
 # echo "Evaluating base model..."
-# "$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
+# "$PYTHON" -m src.evaluation.evaluate_openai \
+#   --model gpt-5.6-luna \
+#   --episodes 5 \
+#   --seed 1234
+
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
 
 echo "Training SFT model..."
 "$PYTHON" train_sft.py \
@@ -41,12 +41,12 @@ echo "Training SFT model..."
 echo "Evaluating SFT model..."
 "$PYTHON" -m src.evaluation.evaluate_local model="$SFT_MODEL"
 
-echo "Training OPD model..."
-"$PYTHON" train_opd.py \
-    train.model_name="$SFT_MODEL" \
-    train.teacher_model="$TEACHER_MODEL" \
-    train.run_name="$OPD_RUN" \
-    train.final_model.output_dir=outputs
+# echo "Training OPD model..."
+# "$PYTHON" train_opd.py \
+#     train.model_name="$SFT_MODEL" \
+#     train.teacher_model="$TEACHER_MODEL" \
+#     train.run_name="$OPD_RUN" \
+#     train.final_model.output_dir=outputs
 
-echo "Evaluating OPD model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$OPD_MODEL"
+# echo "Evaluating OPD model..."
+# "$PYTHON" -m src.evaluation.evaluate_local model="$OPD_MODEL"
