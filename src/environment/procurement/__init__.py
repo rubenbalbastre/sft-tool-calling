@@ -1,6 +1,7 @@
 """Seeded procurement option-selection environment."""
 
 from .environment import ProcurementEnvironment
+from .instructions import SYSTEM_PROMPT
 from .prompts import (
     LANGUAGES,
     TEMPLATES_PER_LANGUAGE,
@@ -12,6 +13,7 @@ from .tools import CHAT_TOOLS, TOOLS
 
 __all__ = [
     "ProcurementEnvironment",
+    "SYSTEM_PROMPT",
     "generate_scenarios",
     "format_prompt",
     "prompt_variants",

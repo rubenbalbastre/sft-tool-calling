@@ -1,5 +1,6 @@
 import unittest
 
+from src.environment.procurement import SYSTEM_PROMPT
 from src.training.preprocessing import format_sft_example
 
 
@@ -25,10 +26,34 @@ class TrainingPreprocessingTest(unittest.TestCase):
         )
 
         self.assertEqual(rendered, "rendered")
+        self.assertEqual(
+            tokenizer.messages[0],
+            {"role": "system", "content": SYSTEM_PROMPT},
+        )
+        self.assertEqual(tokenizer.messages[1]["role"], "user")
         self.assertFalse(tokenizer.kwargs["enable_thinking"])
         self.assertEqual(tokenizer.kwargs["reasoning_effort"], "none")
         self.assertFalse(tokenizer.kwargs["add_generation_prompt"])
         self.assertFalse(tokenizer.kwargs["tokenize"])
+
+    def test_sft_formatter_does_not_duplicate_existing_system_prompt(self):
+        tokenizer = RecordingTokenizer()
+        messages = [
+            {"role": "system", "content": "Custom instructions"},
+            {"role": "user", "content": "Choose an option"},
+        ]
+
+        format_sft_example(
+            {"source_messages": messages},
+            tokenizer=tokenizer,
+            enable_thinking=False,
+            reasoning_effort="none",
+        )
+
+        self.assertEqual(len(tokenizer.messages), 2)
+        self.assertEqual(tokenizer.messages[0]["role"], "system")
+        self.assertEqual(tokenizer.messages[0]["content"], "Custom instructions")
+        self.assertEqual(tokenizer.messages[1]["role"], "user")
 
 
 if __name__ == "__main__":
