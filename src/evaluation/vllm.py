@@ -2,7 +2,9 @@
 
 import shutil
 import subprocess
+import sys
 import time
+from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
@@ -32,9 +34,17 @@ class VLLMServer:
         self.log_file = None
 
     def start(self):
-        executable = shutil.which("vllm")
+        venv_executable = Path(sys.executable).with_name("vllm")
+        executable = (
+            str(venv_executable)
+            if venv_executable.is_file()
+            else shutil.which("vllm")
+        )
         if not executable:
-            raise RuntimeError("vllm executable not found in the active environment")
+            raise RuntimeError(
+                f"vLLM is not installed for {sys.executable}. "
+                "Install the project requirements in this environment."
+            )
 
         self.log_file = self.log_path.open("w", encoding="utf-8")
         command = [

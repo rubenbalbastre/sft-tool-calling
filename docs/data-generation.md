@@ -21,6 +21,7 @@ All splits have the same columns:
 - `messages`: full SFT conversation or initial OPD/test prompt;
 - `scenario_json`: hidden state for the environment and verifier;
 - `scenario_id`, `stage`, `language`, `trajectory_type`, and `difficulty`;
+- `prompt_variant`: language and template provenance for the surface form;
 - `tool_sequence`: reference trajectory sequence for analysis, not a required
   sequence enforced by the verifier.
 
@@ -28,10 +29,17 @@ Only `messages` is model input. Never include `scenario_json` or
 `tool_sequence` in the model prompt.
 
 Generation is seeded and cycles through direct-supplier, open-search,
-compliance, preferred-with-fallback, and no-feasible-option tasks. Complete SFT
-conversations are produced by running a reference policy through the same
-environment used for evaluation. Tool arguments are JSON strings under
-`assistant.tool_calls[].function.arguments`.
+compliance, preferred-with-fallback, and no-feasible-option tasks. Each semantic
+scenario is assigned to one split before it is expanded into ten English, ten
+Spanish, ten German, and ten French prompts. All 40 variants retain the same
+`scenario_id` and remain in that split, preventing semantic scenario leakage.
+
+The values under `splits` are semantic scenario counts, not final row counts.
+With the default four languages and ten templates, each value produces 40
+times as many dataset rows. Complete SFT conversations are produced by running
+a reference policy once through the same environment used for evaluation and
+reusing that verified action trace across its prompt variants. Tool arguments
+are JSON strings under `assistant.tool_calls[].function.arguments`.
 
 ## Hydra overrides
 
@@ -43,6 +51,14 @@ python generate_data.py \
   splits.opd_validation=5 \
   splits.test=10 \
   output_dir=data/pilot/hf_dataset
+```
+
+Limit prompt expansion during a small experiment with:
+
+```bash
+python generate_data.py \
+  prompt_generation.languages='[English,Spanish]' \
+  prompt_generation.templates_per_language=2
 ```
 
 ## Load locally

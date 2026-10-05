@@ -7,7 +7,7 @@ omegaconf>=2.3,<3
 openai>=3,<4
 peft>=0.18,<1
 python-dotenv>=1,<2
-torch>=2.13,<3
+torch==2.13.0
 transformers>=5.17,<6
 trl>=1.13,<2
 vllm==0.28.0

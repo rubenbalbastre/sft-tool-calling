@@ -11,8 +11,9 @@ feasibility, utility, evidence, and route-specific requirements without
 comparing against a gold trajectory.
 
 The dataset generator uses the same scenarios, tools, and verifier. It currently
-creates deterministic reference trajectories; these can later be replaced or
-augmented with filtered teacher rollouts without changing the dataset schema.
+creates deterministic reference trajectories and multilingual prompt variants;
+these can later be augmented with filtered teacher rollouts without changing
+the environment semantics.
 
 ## Quick start
 

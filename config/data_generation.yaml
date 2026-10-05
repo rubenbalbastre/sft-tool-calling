@@ -1,6 +1,10 @@
 seed: 42
 output_dir: "data/pipeline/hf_dataset"
 
+prompt_generation:
+  languages: ["English", "Spanish", "German", "French"]
+  templates_per_language: 10
+
 splits:
   sft_train: 400
   sft_validation: 50

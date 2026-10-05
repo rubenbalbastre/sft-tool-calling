@@ -1,9 +1,30 @@
 import unittest
 
-from src.environment.procurement import ProcurementEnvironment, generate_scenarios
+from src.environment.procurement import (
+    LANGUAGES,
+    ProcurementEnvironment,
+    TEMPLATES_PER_LANGUAGE,
+    generate_scenarios,
+    prompt_variants,
+)
 
 
 class ProcurementEnvironmentTest(unittest.TestCase):
+    def test_every_scenario_has_all_multilingual_prompt_variants(self):
+        for scenario in generate_scenarios(5, "prompt_test", 17):
+            variants = list(prompt_variants(scenario))
+            self.assertEqual(
+                len(variants), len(LANGUAGES) * TEMPLATES_PER_LANGUAGE
+            )
+            self.assertEqual(
+                {variant["scenario_id"] for variant in variants},
+                {scenario["scenario_id"]},
+            )
+            self.assertEqual(
+                {variant["language"] for variant in variants}, set(LANGUAGES)
+            )
+            self.assertTrue(all(variant["user_request"] for variant in variants))
+
     def test_seeded_scenarios_are_reproducible(self):
         first = generate_scenarios(5, seed=1234)
         second = generate_scenarios(5, seed=1234)
