@@ -54,6 +54,7 @@ python -m src.evaluation.evaluate_local backend=vllm episodes=100
 - [Dataset generation and Hugging Face publishing](docs/data-generation.md)
 - [SFT and on-policy training](docs/training.md)
 - [Local and OpenAI evaluation](docs/evaluation.md)
+- [RunPod experiment environment](docs/runpod.md)
 
 The procurement environment lives in
 [`src/environment/procurement`](src/environment/procurement), and its SQLite
