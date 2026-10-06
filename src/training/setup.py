@@ -5,7 +5,10 @@ import wandb
 
 
 def load_model_and_tokenizer(args):
-    model = AutoModelForCausalLM.from_pretrained(args.train.model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.train.model_name,
+        attn_implementation=args.train.attn_implementation,
+    )
     tokenizer = AutoTokenizer.from_pretrained(args.train.model_name)
 
     # TRL's tool loop expects this value on the top-level config. Composite

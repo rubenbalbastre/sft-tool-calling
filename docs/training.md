@@ -15,6 +15,13 @@ python train_sft.py
 python train_opd.py
 ```
 
+The environment script installs FlashAttention after Torch with build isolation
+disabled, as required by its build process. Compilation is limited to four jobs
+by default to avoid exhausting RunPod system memory; override this with
+`MAX_JOBS` when creating the environment. Training loads the student and OPD
+teacher models with `attn_implementation: flash_attention_2`. Inspect the
+resolved backend with `model.config._attn_implementation` after loading.
+
 ## LoRA
 
 Both training entry points use the shared

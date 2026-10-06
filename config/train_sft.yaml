@@ -12,6 +12,7 @@ train:
   run_name: null # Set this when another job needs a deterministic model path.
   seed: 42
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct" # "HuggingFaceTB/SmolLM3-3B"
+  attn_implementation: "flash_attention_2"
   # Tool trajectories are several thousand tokens long. Keep the physical
   # batch small and recover the effective batch through accumulation.
   gradient_accumulation_steps: 1
@@ -21,7 +22,7 @@ train:
   enable_thinking: false
   reasoning_effort: "none"
   learning_rate: 2e-5
-  max_steps: 80 # 1000
+  max_steps: 32 # 1000
   use_cpu: false # false
   bf16: true # true
   fp16: false # true

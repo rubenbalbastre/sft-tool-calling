@@ -32,7 +32,10 @@ def main(args):
 
     model, tokenizer = load_model_and_tokenizer(args)
     peft_config = build_lora_config(args.lora, model)
-    teacher_model = AutoModelForCausalLM.from_pretrained(args.train.teacher_model)
+    teacher_model = AutoModelForCausalLM.from_pretrained(
+        args.train.teacher_model,
+        attn_implementation=args.train.attn_implementation,
+    )
     print("Model and tokenizer loaded successfully.")
 
     dataset_path = PROJECT_ROOT / args.dataset.file
