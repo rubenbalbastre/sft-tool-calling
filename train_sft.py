@@ -90,7 +90,7 @@ def main(args):
         processing_class=tokenizer,
         args=config,
         train_dataset=train_dataset,
-        eval_dataset=validation_dataset.select(range(100)),
+        eval_dataset=validation_dataset.select(range(64)),
         callbacks=callbacks,
         peft_config=peft_config,
     )
