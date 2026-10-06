@@ -6,7 +6,7 @@
 > distillation and larger-scale experiments are still under active development.
 
 Published models and experiment artifacts are collected on
-[Hugging Face](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-model-on-policy-distillation-and-sft).
+[Hugging Face](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
 
 ## Project description
 
@@ -29,6 +29,31 @@ seeded scenarios → multilingual trajectories → LoRA SFT / OPD
        ↓                                         ↓
 SQLite environment ← tool calls ← model evaluation and verification
 ```
+
+## Fine-tuned models
+
+The current main experiment fine-tunes
+[`google/gemma-4-E2B-it`](https://huggingface.co/google/gemma-4-E2B-it)
+with LoRA supervised fine-tuning on the generated multilingual tool
+trajectories.
+
+| Experiment | Base model | Method | Status |
+| --- | --- | --- | --- |
+| `gemma-4-E2B-it-sft` | `google/gemma-4-E2B-it` | LoRA SFT | Experimental |
+
+Published checkpoints are listed in the
+[project's Hugging Face collection](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
+
+## Results
+
+Results will be reported on the held-out `test` split using the executable
+environment evaluator and the same decoding configuration for every model.
+
+| Model | Training stage | Task success | Average return | Status |
+| --- | --- | ---: | ---: | --- |
+| `google/gemma-4-E2B-it` | Baseline | — | — | WIP |
+| `gemma-4-E2B-it-sft` | LoRA SFT | — | — | WIP |
+| `gemma-4-E2B-it-sft-opd` | LoRA OPD | — | — | WIP |
 
 ## Environment description
 
