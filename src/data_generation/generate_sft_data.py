@@ -38,7 +38,29 @@ def _take_action(env, messages, action):
         "tool_call_id": call_id,
         "content": json.dumps(observation["content"], ensure_ascii=False),
     })
-    return terminated or truncated, info
+    return observation, terminated or truncated, info
+
+
+def _quote_and_deliver(env, messages, scenario, supplier_id):
+    """Observe one supplier quote and all of its delivery options."""
+    quote_observation, _, _ = _take_action(env, messages, {
+        "name": "request_quote",
+        "arguments": {
+            "supplier_id": supplier_id,
+            "material_id": scenario["material_id"],
+            "quantity": scenario["quantity"],
+            "unit": scenario["unit"],
+            "required_date": scenario["required_date"],
+        },
+    })
+    quote_id = quote_observation["content"]["quote_id"]
+    _take_action(env, messages, {
+        "name": "get_delivery_options",
+        "arguments": {
+            "quote_id": quote_id,
+            "destination": scenario["destination"],
+        },
+    })
 
 
 def build_reference_trajectory(scenario):
@@ -49,49 +71,47 @@ def build_reference_trajectory(scenario):
 
     if kind == "direct_supplier":
         supplier_ids = [scenario["requested_supplier_id"]]
+    elif kind == "preferred_with_fallback":
+        preferred = scenario["preferred_supplier_id"]
+        _quote_and_deliver(env, messages, scenario, preferred)
+        if env.observed_feasible_options():
+            supplier_ids = []
+        else:
+            _take_action(env, messages, {
+                "name": "search_suppliers",
+                "arguments": {
+                    "material_id": scenario["material_id"],
+                    "countries": scenario["allowed_countries"],
+                },
+            })
+            supplier_ids = sorted(env.known_suppliers - {preferred})
     else:
-        action = {
+        _take_action(env, messages, {
             "name": "search_suppliers",
             "arguments": {
                 "material_id": scenario["material_id"],
                 "countries": scenario["allowed_countries"],
             },
-        }
-        _take_action(env, messages, action)
+        })
         supplier_ids = sorted(env.known_suppliers)
 
-    if kind == "preferred_with_fallback":
-        preferred = scenario["preferred_supplier_id"]
-        supplier_ids = [preferred] + [item for item in supplier_ids if item != preferred]
-
-    for supplier_id in supplier_ids:
-        if scenario["required_certifications"]:
-            _take_action(env, messages, {
+    if kind == "compliance_first":
+        certified_supplier_ids = []
+        for supplier_id in supplier_ids:
+            profile_observation, _, _ = _take_action(env, messages, {
                 "name": "get_supplier_profile",
                 "arguments": {"supplier_id": supplier_id},
             })
-        _take_action(env, messages, {
-            "name": "request_quote",
-            "arguments": {
-                "supplier_id": supplier_id,
-                "material_id": scenario["material_id"],
-                "quantity": scenario["quantity"],
-                "unit": scenario["unit"],
-                "required_date": scenario["required_date"],
-            },
-        })
-        quote_id = next(
-            quote_id
-            for quote_id, quote in env.quotes.items()
-            if quote["supplier_id"] == supplier_id
-        )
-        _take_action(env, messages, {
-            "name": "get_delivery_options",
-            "arguments": {
-                "quote_id": quote_id,
-                "destination": scenario["destination"],
-            },
-        })
+            certifications = profile_observation["content"]["certifications"]
+            if all(
+                required in certifications
+                for required in scenario["required_certifications"]
+            ):
+                certified_supplier_ids.append(supplier_id)
+        supplier_ids = certified_supplier_ids
+
+    for supplier_id in supplier_ids:
+        _quote_and_deliver(env, messages, scenario, supplier_id)
 
     observed = env.observed_feasible_options()
 
@@ -107,7 +127,7 @@ def build_reference_trajectory(scenario):
     else:
         final_action = {"name": "report_no_feasible_option", "arguments": {}}
 
-    done, info = _take_action(env, messages, final_action)
+    _, done, info = _take_action(env, messages, final_action)
     if not done or not info["success"]:
         raise RuntimeError(f"Reference trajectory failed for {scenario['scenario_id']}")
     return messages

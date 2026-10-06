@@ -41,6 +41,11 @@ a reference policy once through the same environment used for evaluation and
 reusing that verified action trace across its prompt variants. Tool arguments
 are JSON strings under `assistant.tool_calls[].function.arguments`.
 
+Reference routes follow the user instruction: preferred suppliers are quoted
+before searching for fallbacks, and compliance-first trajectories inspect all
+profiles but request quotes only from suppliers whose observed certifications
+satisfy the requirement.
+
 ## Hydra overrides
 
 ```bash
