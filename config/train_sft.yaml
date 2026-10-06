@@ -6,6 +6,7 @@ dataset:
   file: "data/pipeline/hf_dataset/"
   train_split: "sft_train"
   validation_split: "sft_validation"
+  validation_examples: 64
 
 train:
   style: "sft"
@@ -19,25 +20,27 @@ train:
   per_device_train_batch_size: 8
   per_device_eval_batch_size: 16
   max_seq_length: 8192
+  group_by_length: true
+  gradient_checkpointing: false
   enable_thinking: false
   reasoning_effort: "none"
   learning_rate: 2e-5
-  max_steps: 32 # 1000
+  max_steps: 48 # 1000
   use_cpu: false # false
   bf16: true # true
   fp16: false # true
   logging_steps: 1
   eval_strategy: "steps"
-  eval_steps: 8
+  eval_steps: 4
   early_stopping:
     enabled: true
     patience: 3 # Number of evaluations without sufficient improvement.
-    threshold: 0.0
+    threshold: 0.01
     metric: "eval_loss"
     greater_is_better: false
   checkpointing:
     save_strategy: "steps"
-    save_steps: 8 # Keep aligned with eval_steps for early stopping.
+    save_steps: 4 # Keep aligned with eval_steps for early stopping.
     save_total_limit: 3
   final_model:
     save: true

@@ -7,7 +7,12 @@ from types import SimpleNamespace
 
 from omegaconf import OmegaConf
 
-from src.evaluation.common import create_run_directory, summarize
+from src.data_generation.generate_sft_data import build_pipeline_dataset
+from src.evaluation.common import (
+    create_run_directory,
+    load_evaluation_rows,
+    summarize,
+)
 from src.evaluation.evaluate_openai import load_eval_defaults, run_episode
 from src.evaluation.evaluate_local import (
     parse_transformers_response,
@@ -74,6 +79,37 @@ class EvaluatorTest(unittest.TestCase):
         self.assertEqual(defaults["reasoning_effort"], config.reasoning_effort)
         self.assertEqual(defaults["temperature"], config.temperature)
         self.assertEqual(defaults["episodes"], config.episodes)
+        self.assertEqual(defaults["dataset_split"], config.dataset.split)
+        self.assertEqual(defaults["prompt_variant"], config.dataset.prompt_variant)
+
+    def test_evaluation_rows_come_from_unique_test_scenarios(self):
+        sizes = {
+            "sft_train": 1,
+            "sft_validation": 1,
+            "opd_train": 1,
+            "opd_validation": 1,
+            "test": 3,
+        }
+        dataset = build_pipeline_dataset(
+            sizes,
+            seed=42,
+            languages=["English", "Spanish"],
+            templates_per_language=2,
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            dataset.save_to_disk(temporary_directory)
+            rows = load_evaluation_rows(
+                temporary_directory,
+                "test",
+                "english_1",
+                episodes=3,
+                seed=1234,
+            )
+
+        scenarios = [row["scenario"] for row in rows]
+        self.assertEqual(len({row["scenario_id"] for row in scenarios}), 3)
+        self.assertTrue(all(row["language"] == "English" for row in scenarios))
+        self.assertTrue(all(row["prompt_variant"] == "english_1" for row in scenarios))
 
     def test_openai_tool_schemas_are_strict(self):
         for tool in TOOLS:

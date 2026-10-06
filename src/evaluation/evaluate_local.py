@@ -20,12 +20,12 @@ from src.environment.procurement import (
     CHAT_TOOLS,
     TOOLS,
     ProcurementEnvironment,
-    generate_scenarios,
 )
 from src.evaluation.common import (
     DEFAULT_PROMPT,
     create_run_directory,
     episode_result,
+    load_evaluation_rows,
     save_config,
     save_results,
 )
@@ -375,10 +375,13 @@ def main(args):
             server.stop()
             raise
 
-    rows = [
-        {"scenario": scenario}
-        for scenario in generate_scenarios(args.episodes, "evaluation", args.seed)
-    ]
+    rows = load_evaluation_rows(
+        PROJECT_ROOT / args.dataset.file,
+        args.dataset.split,
+        args.dataset.prompt_variant,
+        args.episodes,
+        args.seed,
+    )
     try:
         concurrency = args.concurrency if args.backend == "vllm" else 1
         if concurrency < 1:

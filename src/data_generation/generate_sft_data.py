@@ -23,8 +23,9 @@ def _tool_call(call_id, action):
     }
 
 
-def _take_action(env, messages, action):
+def _take_action(env, messages, name, **arguments):
     """Execute one action and append its assistant/tool message pair."""
+    action = {"name": name, "arguments": arguments}
     call_id = f"call_{len(env.actions) + 1}"
     messages.append({
         "role": "assistant",
@@ -34,11 +35,57 @@ def _take_action(env, messages, action):
     observation, _, terminated, truncated, info = env.step(action)
     messages.append({
         "role": "tool",
-        "name": action["name"],
+        "name": name,
         "tool_call_id": call_id,
         "content": json.dumps(observation["content"], ensure_ascii=False),
     })
-    return terminated or truncated, info
+    return observation["content"], terminated or truncated, info
+
+
+def _search_suppliers(env, messages, scenario):
+    content, _, _ = _take_action(
+        env,
+        messages,
+        "search_suppliers",
+        material_id=scenario["material_id"],
+        countries=scenario["allowed_countries"],
+    )
+    return [supplier["supplier_id"] for supplier in content["suppliers"]]
+
+
+def _filter_certified(env, messages, scenario, supplier_ids):
+    certified = []
+    for supplier_id in supplier_ids:
+        profile, _, _ = _take_action(
+            env, messages, "get_supplier_profile", supplier_id=supplier_id
+        )
+        if all(
+            item in profile["certifications"]
+            for item in scenario["required_certifications"]
+        ):
+            certified.append(supplier_id)
+    return certified
+
+
+def _quote_and_deliver(env, messages, scenario, supplier_id):
+    """Observe one supplier quote and all of its delivery options."""
+    quote, _, _ = _take_action(
+        env,
+        messages,
+        "request_quote",
+        supplier_id=supplier_id,
+        material_id=scenario["material_id"],
+        quantity=scenario["quantity"],
+        unit=scenario["unit"],
+        required_date=scenario["required_date"],
+    )
+    _take_action(
+        env,
+        messages,
+        "get_delivery_options",
+        quote_id=quote["quote_id"],
+        destination=scenario["destination"],
+    )
 
 
 def build_reference_trajectory(scenario):
@@ -49,49 +96,27 @@ def build_reference_trajectory(scenario):
 
     if kind == "direct_supplier":
         supplier_ids = [scenario["requested_supplier_id"]]
-    else:
-        action = {
-            "name": "search_suppliers",
-            "arguments": {
-                "material_id": scenario["material_id"],
-                "countries": scenario["allowed_countries"],
-            },
-        }
-        _take_action(env, messages, action)
-        supplier_ids = sorted(env.known_suppliers)
-
-    if kind == "preferred_with_fallback":
+    elif kind == "preferred_with_fallback":
         preferred = scenario["preferred_supplier_id"]
-        supplier_ids = [preferred] + [item for item in supplier_ids if item != preferred]
+        _quote_and_deliver(env, messages, scenario, preferred)
+        if env.observed_feasible_options():
+            supplier_ids = []
+        else:
+            supplier_ids = [
+                supplier_id
+                for supplier_id in _search_suppliers(env, messages, scenario)
+                if supplier_id != preferred
+            ]
+    else:
+        supplier_ids = _search_suppliers(env, messages, scenario)
+
+    if kind == "compliance_first":
+        supplier_ids = _filter_certified(
+            env, messages, scenario, supplier_ids
+        )
 
     for supplier_id in supplier_ids:
-        if scenario["required_certifications"]:
-            _take_action(env, messages, {
-                "name": "get_supplier_profile",
-                "arguments": {"supplier_id": supplier_id},
-            })
-        _take_action(env, messages, {
-            "name": "request_quote",
-            "arguments": {
-                "supplier_id": supplier_id,
-                "material_id": scenario["material_id"],
-                "quantity": scenario["quantity"],
-                "unit": scenario["unit"],
-                "required_date": scenario["required_date"],
-            },
-        })
-        quote_id = next(
-            quote_id
-            for quote_id, quote in env.quotes.items()
-            if quote["supplier_id"] == supplier_id
-        )
-        _take_action(env, messages, {
-            "name": "get_delivery_options",
-            "arguments": {
-                "quote_id": quote_id,
-                "destination": scenario["destination"],
-            },
-        })
+        _quote_and_deliver(env, messages, scenario, supplier_id)
 
     observed = env.observed_feasible_options()
 
@@ -107,7 +132,9 @@ def build_reference_trajectory(scenario):
     else:
         final_action = {"name": "report_no_feasible_option", "arguments": {}}
 
-    done, info = _take_action(env, messages, final_action)
+    _, done, info = _take_action(
+        env, messages, final_action["name"], **final_action["arguments"]
+    )
     if not done or not info["success"]:
         raise RuntimeError(f"Reference trajectory failed for {scenario['scenario_id']}")
     return messages

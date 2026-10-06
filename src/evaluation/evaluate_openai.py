@@ -14,11 +14,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.environment.procurement import TOOLS, ProcurementEnvironment, generate_scenarios
+from src.environment.procurement import TOOLS, ProcurementEnvironment
 from src.evaluation.common import (
     DEFAULT_PROMPT,
     create_run_directory,
     episode_result,
+    load_evaluation_rows,
     save_config,
     save_results,
     summarize,
@@ -71,6 +72,9 @@ def load_eval_defaults():
         "seed": int(config.seed),
         "max_steps": int(config.max_steps),
         "output_root": PROJECT_ROOT / config.output_root,
+        "dataset_file": config.dataset.file,
+        "dataset_split": config.dataset.split,
+        "prompt_variant": config.dataset.prompt_variant,
     }
 
 
@@ -180,6 +184,9 @@ def main():
     parser.add_argument("--episodes", type=int, default=defaults["episodes"])
     parser.add_argument("--seed", type=int, default=defaults["seed"])
     parser.add_argument("--max-steps", type=int, default=defaults["max_steps"])
+    parser.add_argument("--dataset-file", default=defaults["dataset_file"])
+    parser.add_argument("--dataset-split", default=defaults["dataset_split"])
+    parser.add_argument("--prompt-variant", default=defaults["prompt_variant"])
     parser.add_argument(
         "--output-root",
         type=Path,
@@ -206,15 +213,23 @@ def main():
         "episodes": args.episodes,
         "seed": args.seed,
         "max_steps": args.max_steps,
+        "dataset": {
+            "file": args.dataset_file,
+            "split": args.dataset_split,
+            "prompt_variant": args.prompt_variant,
+        },
         "prompt": prompt,
         "tools": TOOLS,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     save_config(run_directory, config)
-    rows = [
-        {"scenario": scenario}
-        for scenario in generate_scenarios(args.episodes, "evaluation", args.seed)
-    ]
+    rows = load_evaluation_rows(
+        PROJECT_ROOT / args.dataset_file,
+        args.dataset_split,
+        args.prompt_variant,
+        args.episodes,
+        args.seed,
+    )
     client = OpenAI()
     results = []
     for index, row in enumerate(rows, 1):

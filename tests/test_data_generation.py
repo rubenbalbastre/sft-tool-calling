@@ -2,9 +2,21 @@ import json
 import unittest
 
 from src.data_generation.generate_sft_data import build_pipeline_dataset
+from src.environment.procurement.database import ProcurementRepository
 
 
 class DataGenerationTest(unittest.TestCase):
+    @staticmethod
+    def actions(row):
+        return [
+            {
+                "name": call["function"]["name"],
+                "arguments": json.loads(call["function"]["arguments"]),
+            }
+            for message in row["messages"]
+            for call in message["tool_calls"]
+        ]
+
     def test_pipeline_splits_and_views(self):
         sizes = {
             "sft_train": 5,
@@ -60,6 +72,38 @@ class DataGenerationTest(unittest.TestCase):
         for index, scenario_ids in enumerate(split_ids):
             for other_ids in split_ids[index + 1:]:
                 self.assertTrue(scenario_ids.isdisjoint(other_ids))
+
+        rows_by_type = {}
+        for row in dataset["sft_train"]:
+            rows_by_type.setdefault(row["trajectory_type"], row)
+
+        preferred_actions = self.actions(
+            rows_by_type["preferred_with_fallback"]
+        )
+        self.assertEqual(
+            [action["name"] for action in preferred_actions[:3]],
+            [
+                "request_quote",
+                "get_delivery_options",
+                "search_suppliers",
+            ],
+        )
+
+        compliance_actions = self.actions(rows_by_type["compliance_first"])
+        quoted_supplier_ids = {
+            action["arguments"]["supplier_id"]
+            for action in compliance_actions
+            if action["name"] == "request_quote"
+        }
+        repository = ProcurementRepository()
+        try:
+            self.assertTrue(quoted_supplier_ids)
+            self.assertTrue(all(
+                "ISO-14001" in repository.supplier(supplier_id)["certifications"]
+                for supplier_id in quoted_supplier_ids
+            ))
+        finally:
+            repository.close()
 
 
 if __name__ == "__main__":
