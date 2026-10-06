@@ -1,13 +1,48 @@
 """Backend-neutral helpers for model evaluation."""
 
 import json
+import random
 import time
 from collections import defaultdict
+
+from datasets import load_from_disk
 
 from src.environment.procurement import SYSTEM_PROMPT
 
 
 DEFAULT_PROMPT = SYSTEM_PROMPT
+
+
+def load_evaluation_rows(
+    dataset_path, split, prompt_variant, episodes, seed
+):
+    """Load unique held-out scenarios from a Hugging Face dataset split."""
+    dataset = load_from_disk(str(dataset_path))
+    if split not in dataset:
+        raise ValueError(
+            f"Evaluation split {split!r} is not present in {dataset_path}"
+        )
+
+    rows = []
+    seen = set()
+    for row in dataset[split]:
+        if prompt_variant and row["prompt_variant"] != prompt_variant:
+            continue
+        scenario = json.loads(row["scenario_json"])
+        scenario_id = scenario["scenario_id"]
+        if scenario_id not in seen:
+            seen.add(scenario_id)
+            rows.append({"scenario": scenario})
+
+    if episodes > len(rows):
+        raise ValueError(
+            f"Requested {episodes} episodes, but split {split!r} contains "
+            f"only {len(rows)} unique scenarios for prompt variant "
+            f"{prompt_variant!r}"
+        )
+
+    random.Random(seed).shuffle(rows)
+    return rows[:episodes]
 
 
 def create_run_directory(output_root):

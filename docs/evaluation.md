@@ -1,5 +1,11 @@
 # Evaluation
 
+Both local and OpenAI evaluation load unique held-out scenarios from the
+Hugging Face dataset configured under `dataset` in `config/eval.yaml`. The
+default is the `test` split at `data/pipeline/hf_dataset/`, using the
+`english_1` prompt variant. `episodes` limits the number of unique scenarios;
+`seed` deterministically controls their order and subset.
+
 Both evaluators run fresh seeded procurement scenarios through the same
 environment. Results are written to numbered directories:
 
