@@ -19,10 +19,9 @@ train:
   per_device_train_batch_size: 8
   per_device_eval_batch_size: 16
   max_seq_length: 8192
-  group_by_length: true
   packing: false
   padding_free: false
-  gradient_checkpointing: false
+  gradient_checkpointing: true
   enable_thinking: false
   reasoning_effort: "none"
   learning_rate: 2e-5
