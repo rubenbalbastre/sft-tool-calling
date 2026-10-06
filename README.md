@@ -11,8 +11,8 @@ finish with a valid purchasing decision.
 The purpose of fine-tuning is not to teach one fixed workflow. It is to improve
 the model's ability to select different tool routes from the user's constraints,
 preserve arguments across turns, recover from tool errors, and make a grounded
-decision from the evidence it has collected. Behavioral success is measured in
-the executable environment alongside token-level validation loss.
+decision from the evidence it has collected. Task success is measured by the
+executable environment alongside token-level validation loss.
 
 The project connects the complete experimentation loop:
 
@@ -41,6 +41,8 @@ deterministically from a seed. This makes experiments reproducible while still
 requiring the model to discover the state through tool calls. The interface
 follows the familiar Gymnasium `reset`/`step` shape and uses structured tool-call
 dictionaries as actions.
+
+![Procurement tool-calling environment](docs/assets/environment-overview.svg)
 
 ## Techniques used
 
