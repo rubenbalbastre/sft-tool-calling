@@ -5,12 +5,13 @@ import json
 import random
 
 from transformers import TrainerCallback
+import wandb
 
 from src.environment.procurement import SYSTEM_PROMPT
 from src.evaluation.common import summarize
 from src.evaluation.evaluate_local import (
     TransformersBackend,
-    run_concurrent_episodes,
+    run_batched_episodes,
 )
 
 
@@ -70,12 +71,11 @@ class EnvironmentValidationCallback(TrainerCallback):
             self.reasoning_effort,
         )
         try:
-            results = asyncio.run(run_concurrent_episodes(
+            results = asyncio.run(run_batched_episodes(
                 backend,
                 self.rows,
                 SYSTEM_PROMPT,
                 self.max_steps,
-                concurrency=1,
             ))
         finally:
             if was_training:
@@ -84,6 +84,12 @@ class EnvironmentValidationCallback(TrainerCallback):
         summary = summarize(results)["overall"]
         metrics["eval_environment_success_rate"] = summary["success_rate"]
         metrics["eval_environment_return"] = summary["average_return"]
+        environment_metrics = {
+            "eval/environment_success_rate": summary["success_rate"],
+            "eval/environment_return": summary["average_return"],
+        }
+        if wandb.run is not None:
+            wandb.log(environment_metrics, step=state.global_step)
         print(
             "Environment validation: "
             f"success={summary['success_rate']:.3f}, "
