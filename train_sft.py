@@ -16,6 +16,10 @@ from src.training.preprocessing import (
     prepare_sft_source,
 )
 from src.training.lora import build_lora_config
+from src.training.callbacks import (
+    EnvironmentValidationCallback,
+    validation_rollout_rows,
+)
 
 
 def balanced_subset(dataset, size, seed):
@@ -101,6 +105,18 @@ def main(args):
             early_stopping_patience=args.train.early_stopping.patience,
             early_stopping_threshold=args.train.early_stopping.threshold,
         ))
+    rollout_rows = validation_rollout_rows(
+        validation_source,
+        args.train.validation_rollout_scenarios,
+        args.train.seed,
+    )
+    callbacks.append(EnvironmentValidationCallback(
+        rollout_rows,
+        tokenizer,
+        args.train.enable_thinking,
+        args.train.reasoning_effort,
+        args.train.validation_rollout_steps,
+    ))
 
     trainer = SFTTrainer(
         model=model,

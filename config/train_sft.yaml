@@ -31,6 +31,8 @@ train:
   logging_steps: 1
   eval_strategy: "steps"
   eval_steps: 4
+  validation_rollout_scenarios: 10
+  validation_rollout_steps: 16
   early_stopping:
     enabled: true
     patience: 3 # Number of evaluations without sufficient improvement.

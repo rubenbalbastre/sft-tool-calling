@@ -135,6 +135,24 @@ class TransformersBackend:
         )
         self.model.eval()
 
+    @classmethod
+    def from_model(
+        cls, model, tokenizer, max_new_tokens,
+        enable_thinking, reasoning_effort, temperature=0.0,
+    ):
+        """Wrap an already-loaded training model for environment rollouts."""
+        import torch
+
+        backend = cls.__new__(cls)
+        backend.torch = torch
+        backend.model = model
+        backend.tokenizer = tokenizer
+        backend.max_new_tokens = max_new_tokens
+        backend.enable_thinking = enable_thinking
+        backend.reasoning_effort = reasoning_effort
+        backend.temperature = temperature
+        return backend
+
     async def generate(self, messages):
         inputs = self.tokenizer.apply_chat_template(
             messages,
