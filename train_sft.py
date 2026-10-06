@@ -18,6 +18,18 @@ from src.training.preprocessing import (
 from src.training.lora import build_lora_config
 
 
+def balanced_subset(dataset, size, seed):
+    """Select a seeded subset stratified by task type."""
+    if size >= len(dataset):
+        return dataset
+    encoded = dataset.class_encode_column("trajectory_type")
+    return encoded.train_test_split(
+        train_size=size,
+        stratify_by_column="trajectory_type",
+        seed=seed,
+    )["train"]
+
+
 @hydra.main(config_path="config", config_name="train_sft", version_base=None)
 def main(args):
 
@@ -44,8 +56,13 @@ def main(args):
         args.train.enable_thinking,
         args.train.reasoning_effort,
     )
-    validation_dataset = prepare_sft_source(
+    validation_source = balanced_subset(
         dataset[args.dataset.validation_split],
+        args.dataset.validation_examples,
+        args.train.seed,
+    )
+    validation_dataset = prepare_sft_source(
+        validation_source,
         args.train.enable_thinking,
         args.train.reasoning_effort,
     )
@@ -58,6 +75,8 @@ def main(args):
         gradient_accumulation_steps=args.train.gradient_accumulation_steps,
         learning_rate=args.train.learning_rate,
         max_steps=args.train.max_steps,
+        group_by_length=args.train.group_by_length,
+        gradient_checkpointing=args.train.gradient_checkpointing,
         per_device_eval_batch_size=args.train.per_device_eval_batch_size,
         max_length=args.train.max_seq_length,
         assistant_only_loss=True,
@@ -88,7 +107,7 @@ def main(args):
         processing_class=tokenizer,
         args=config,
         train_dataset=train_dataset,
-        eval_dataset=validation_dataset.select(range(100)),
+        eval_dataset=validation_dataset,
         callbacks=callbacks,
         peft_config=peft_config,
     )
