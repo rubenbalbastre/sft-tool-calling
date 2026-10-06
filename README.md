@@ -5,6 +5,9 @@
 > pipeline, SFT workflow, and model evaluation are functional. On-policy
 > distillation and larger-scale experiments are still under active development.
 
+Published models and experiment artifacts are collected on
+[Hugging Face](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-model-on-policy-distillation-and-sft).
+
 ## Project description
 
 This project explores how supervised fine-tuning and on-policy distillation can
