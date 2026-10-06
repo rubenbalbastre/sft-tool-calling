@@ -79,7 +79,6 @@ def main(args):
         gradient_accumulation_steps=args.train.gradient_accumulation_steps,
         learning_rate=args.train.learning_rate,
         max_steps=args.train.max_steps,
-        group_by_length=args.train.group_by_length,
         packing=args.train.packing,
         padding_free=args.train.padding_free,
         gradient_checkpointing=args.train.gradient_checkpointing,
