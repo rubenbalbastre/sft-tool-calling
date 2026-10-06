@@ -1,5 +1,10 @@
 # Multilingual procurement tool calling
 
+> [!NOTE]
+> **Work in progress.** The executable environment, multilingual dataset
+> pipeline, SFT workflow, and model evaluation are functional. On-policy
+> distillation and larger-scale experiments are still under active development.
+
 ## Project description
 
 This project explores how supervised fine-tuning and on-policy distillation can
