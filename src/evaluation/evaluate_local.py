@@ -135,18 +135,49 @@ class TransformersBackend:
         )
         self.model.eval()
 
+    @classmethod
+    def from_model(
+        cls, model, tokenizer, max_new_tokens,
+        enable_thinking, reasoning_effort, temperature=0.0,
+    ):
+        """Wrap an already-loaded training model for environment rollouts."""
+        import torch
+
+        backend = cls.__new__(cls)
+        backend.torch = torch
+        backend.model = model
+        backend.tokenizer = tokenizer
+        backend.max_new_tokens = max_new_tokens
+        backend.enable_thinking = enable_thinking
+        backend.reasoning_effort = reasoning_effort
+        backend.temperature = temperature
+        return backend
+
     async def generate(self, messages):
-        inputs = self.tokenizer.apply_chat_template(
-            messages,
-            tools=CHAT_TOOLS,
-            enable_thinking=self.enable_thinking,
-            reasoning_effort=self.reasoning_effort,
-            add_generation_prompt=True,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
-        ).to(self.model.device)
-        input_length = inputs["input_ids"].shape[-1]
+        result = (await self.generate_batch([messages]))[0]
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    async def generate_batch(self, conversations):
+        """Generate one assistant turn for a batch of active conversations."""
+        previous_padding_side = self.tokenizer.padding_side
+        self.tokenizer.padding_side = "left"
+        try:
+            inputs = self.tokenizer.apply_chat_template(
+                conversations,
+                tools=CHAT_TOOLS,
+                enable_thinking=self.enable_thinking,
+                reasoning_effort=self.reasoning_effort,
+                add_generation_prompt=True,
+                tokenize=True,
+                padding=True,
+                return_dict=True,
+                return_tensors="pt",
+            ).to(self.model.device)
+        finally:
+            self.tokenizer.padding_side = previous_padding_side
+        padded_input_length = inputs["input_ids"].shape[-1]
 
         with self.torch.inference_mode():
             generation_config = {
@@ -161,19 +192,29 @@ class TransformersBackend:
                 **generation_config,
             )
 
-        generated_ids = output[0, input_length:]
-        parsed = parse_transformers_response(
-            self.tokenizer,
-            generated_ids,
-            inputs["input_ids"][0],
-        )
-        calls = parsed.get("tool_calls") or []
-        usage = {
-            "input_tokens": input_length,
-            "output_tokens": len(generated_ids),
-            "total_tokens": input_length + len(generated_ids),
-        }
-        return parsed, calls, usage
+        results = []
+        for index in range(len(conversations)):
+            input_mask = inputs["attention_mask"][index].bool()
+            prefix_ids = inputs["input_ids"][index][input_mask]
+            generated_ids = output[index, padded_input_length:]
+            try:
+                parsed = parse_transformers_response(
+                    self.tokenizer,
+                    generated_ids,
+                    prefix_ids,
+                )
+                calls = parsed.get("tool_calls") or []
+                input_length = int(input_mask.sum())
+                output_length = len(generated_ids)
+                usage = {
+                    "input_tokens": input_length,
+                    "output_tokens": output_length,
+                    "total_tokens": input_length + output_length,
+                }
+                results.append((parsed, calls, usage))
+            except Exception as error:
+                results.append(error)
+        return results
 
 
 class VLLMBackend:
@@ -309,6 +350,100 @@ async def run_concurrent_episodes(backend, rows, prompt, max_steps, concurrency)
         run_episode(backend, row, prompt, max_steps, semaphore)
         for row in rows
     ))
+
+
+async def run_batched_episodes(backend, rows, prompt, max_steps):
+    """Generate each turn for all currently active episodes as one batch."""
+    states = []
+    for row in rows:
+        scenario = row["scenario"]
+        environment = ProcurementEnvironment(scenario, max_steps=max_steps)
+        environment.reset()
+        states.append({
+            "scenario": scenario,
+            "environment": environment,
+            "messages": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": scenario["user_request"]},
+            ],
+            "trace": [],
+            "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+            "started": time.perf_counter(),
+        })
+
+    results = [None] * len(states)
+    active = list(range(len(states)))
+    for step_number in range(1, max_steps + 1):
+        if not active:
+            break
+        outputs = await backend.generate_batch(
+            [states[index]["messages"] for index in active]
+        )
+        if len(outputs) != len(active):
+            raise RuntimeError("Batch backend returned the wrong number of outputs")
+        next_active = []
+        for index, output in zip(active, outputs):
+            state = states[index]
+            environment = state["environment"]
+            output_error = None
+            assistant_message = None
+            try:
+                if isinstance(output, Exception):
+                    raise output
+                assistant_message, calls, step_usage = output
+                for key in state["usage"]:
+                    state["usage"][key] += step_usage[key]
+                if len(calls) != 1:
+                    raise ValueError(
+                        f"Model produced {len(calls)} tool calls; expected exactly one"
+                    )
+                call = calls[0]
+                action = normalize_call(call)
+                observation, reward, terminated, truncated, info = environment.step(action)
+                done = terminated or truncated
+                state["trace"].append({
+                    "step": step_number,
+                    "action": action,
+                    "observation": observation,
+                    "reward": reward,
+                    "state": environment.state,
+                })
+            except Exception as error:
+                output_error = f"Inference error: {error}"
+                _, _, terminated, truncated, info = environment.step(
+                    {"name": "invalid_model_output", "arguments": {}}
+                )
+                done = terminated or truncated
+                state["trace"].append({
+                    "step": step_number,
+                    "error": output_error,
+                    "assistant_message": assistant_message,
+                })
+
+            if done:
+                results[index] = episode_result(
+                    state["scenario"], info, step_number, state["started"],
+                    state["usage"], state["trace"], output_error,
+                    user_prompt=state["scenario"]["user_request"],
+                )
+            else:
+                continue_conversation(
+                    state["messages"], assistant_message, call, observation
+                )
+                next_active.append(index)
+        active = next_active
+
+    for index in active:
+        state = states[index]
+        _, _, _, _, info = state["environment"].step(
+            {"name": "invalid_model_output", "arguments": {}}
+        )
+        results[index] = episode_result(
+            state["scenario"], info, max_steps, state["started"],
+            state["usage"], state["trace"], "Maximum steps reached",
+            user_prompt=state["scenario"]["user_request"],
+        )
+    return results
 
 
 def resolve_model_path(model):

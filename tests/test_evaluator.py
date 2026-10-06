@@ -16,6 +16,7 @@ from src.evaluation.common import (
 from src.evaluation.evaluate_openai import load_eval_defaults, run_episode
 from src.evaluation.evaluate_local import (
     parse_transformers_response,
+    run_batched_episodes,
     run_episode as run_local_episode,
 )
 from src.evaluation.vllm import quantization_arguments
@@ -58,6 +59,38 @@ class FakeLocalBackend:
         assistant = {"role": "assistant", "content": "", "tool_calls": [call]}
         usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
         return assistant, [call], usage
+
+
+class EmptyBatchBackend:
+    def __init__(self):
+        self.batch_sizes = []
+
+    async def generate_batch(self, conversations):
+        self.batch_sizes.append(len(conversations))
+        usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+        return [
+            ({"role": "assistant", "content": ""}, [], usage)
+            for _ in conversations
+        ]
+
+
+class ShrinkingBatchBackend:
+    def __init__(self):
+        self.batch_sizes = []
+
+    async def generate_batch(self, conversations):
+        self.batch_sizes.append(len(conversations))
+        usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+        empty = ({"role": "assistant", "content": ""}, [], usage)
+        if len(self.batch_sizes) > 1:
+            return [empty]
+        call = {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "unknown_tool", "arguments": {}},
+        }
+        assistant = {"role": "assistant", "content": "", "tool_calls": [call]}
+        return [empty, (assistant, [call], usage)]
 
 
 class SmolLM3TokenizerWithoutResponseTemplate:
@@ -216,6 +249,35 @@ class EvaluatorTest(unittest.TestCase):
         self.assertEqual(result["steps"], 3)
         self.assertEqual(result["usage"]["total_tokens"], 45)
         self.assertEqual(backend.messages[2][-1]["role"], "tool")
+
+    def test_local_rollouts_generate_active_episodes_as_a_batch(self):
+        scenarios = generate_scenarios(2, "test", 99)
+        backend = EmptyBatchBackend()
+
+        results = asyncio.run(run_batched_episodes(
+            backend,
+            [{"scenario": scenario} for scenario in scenarios],
+            "prompt",
+            max_steps=4,
+        ))
+
+        self.assertEqual(backend.batch_sizes, [2])
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(not result["success"] for result in results))
+
+    def test_local_rollout_batch_drops_finished_episodes(self):
+        scenarios = generate_scenarios(2, "test", 100)
+        backend = ShrinkingBatchBackend()
+
+        results = asyncio.run(run_batched_episodes(
+            backend,
+            [{"scenario": scenario} for scenario in scenarios],
+            "prompt",
+            max_steps=4,
+        ))
+
+        self.assertEqual(backend.batch_sizes, [2, 1])
+        self.assertEqual([result["steps"] for result in results], [1, 2])
 
 
 if __name__ == "__main__":
