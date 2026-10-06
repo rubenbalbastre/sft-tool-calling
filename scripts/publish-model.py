@@ -12,7 +12,7 @@ from huggingface_hub import HfApi
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_COLLECTION = (
     "rubenbalbastre/"
-    "2b-tool-calling-using-model-on-policy-distillation-and-sft"
+    "2b-tool-calling-using-sft"
 )
 DEFAULT_NAMESPACE = "rubenbalbastre"
 DEFAULT_REPO_PREFIX = "procurement-function-calling"
@@ -76,7 +76,7 @@ def default_model_card(model_dir, repo_id):
         body.extend(["", f"Base model: `{base_model}`."])
     body.extend([
         "",
-        "It was produced by the SFT and model on-policy distillation experiments in the",
+        "It was produced by the tool-calling post-training experiments in the",
         "[2B tool-calling collection](https://huggingface.co/collections/"
         f"{DEFAULT_COLLECTION}).",
         "",

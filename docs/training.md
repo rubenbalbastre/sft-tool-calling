@@ -53,6 +53,19 @@ template does not provide assistant masks. Tool responses remain visible
 through the attention mask but receive label `-100`, so they do not contribute
 to the training or validation loss.
 
+`packing` and `padding_free` are disabled by default. Both modes require a
+compatible Flash Attention implementation to preserve sample boundaries;
+enabling them with ordinary eager or SDPA attention can let one packed example
+attend to another. Installing `flash-attn` alone is not sufficient—the model
+must also be loaded with a supported Flash Attention implementation.
+
+TRL may warn that the assistant end-of-turn token is outside the loss mask for
+Gemma 4. These trajectories supervise tool calls rather than free-text assistant
+turns: the complete call, including Gemma's tool-call closing token, is inside
+the generation mask, while the following environment response is intentionally
+excluded. Setting `assistant_only_loss=False` would remove the warning but would
+also train on system, user, and tool-response tokens, so it is not used here.
+
 ## Publishing a model
 
 Upload a saved model or LoRA adapter to its own Hugging Face model repository

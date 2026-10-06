@@ -20,8 +20,9 @@ train:
   per_device_train_batch_size: 8
   per_device_eval_batch_size: 16
   max_seq_length: 8192
-  group_by_length: true
-  gradient_checkpointing: false
+  packing: false
+  padding_free: false
+  gradient_checkpointing: true
   enable_thinking: false
   reasoning_effort: "none"
   learning_rate: 2e-5
@@ -32,6 +33,8 @@ train:
   logging_steps: 1
   eval_strategy: "steps"
   eval_steps: 4
+  validation_rollout_scenarios: 10
+  validation_rollout_steps: 16
   early_stopping:
     enabled: true
     patience: 3 # Number of evaluations without sufficient improvement.

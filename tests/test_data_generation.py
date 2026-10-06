@@ -3,6 +3,7 @@ import unittest
 
 from src.data_generation.generate_sft_data import build_pipeline_dataset
 from src.environment.procurement.database import ProcurementRepository
+from src.training.callbacks import validation_rollout_rows
 
 
 class DataGenerationTest(unittest.TestCase):
@@ -72,6 +73,21 @@ class DataGenerationTest(unittest.TestCase):
         for index, scenario_ids in enumerate(split_ids):
             for other_ids in split_ids[index + 1:]:
                 self.assertTrue(scenario_ids.isdisjoint(other_ids))
+
+        rollout_rows = validation_rollout_rows(
+            dataset["sft_train"], 10, seed=42
+        )
+        self.assertEqual(len(rollout_rows), 5)
+        self.assertEqual(
+            {row["scenario"]["task_type"] for row in rollout_rows},
+            {
+                "direct_supplier",
+                "open_search",
+                "compliance_first",
+                "preferred_with_fallback",
+                "no_feasible_option",
+            },
+        )
 
         rows_by_type = {}
         for row in dataset["sft_train"]:
