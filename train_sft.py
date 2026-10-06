@@ -18,6 +18,18 @@ from src.training.preprocessing import (
 from src.training.lora import build_lora_config
 
 
+def balanced_subset(dataset, size, seed):
+    """Select a seeded subset stratified by task type."""
+    if size >= len(dataset):
+        return dataset
+    encoded = dataset.class_encode_column("trajectory_type")
+    return encoded.train_test_split(
+        train_size=size,
+        stratify_by_column="trajectory_type",
+        seed=seed,
+    )["train"]
+
+
 @hydra.main(config_path="config", config_name="train_sft", version_base=None)
 def main(args):
 
@@ -44,8 +56,13 @@ def main(args):
         args.train.enable_thinking,
         args.train.reasoning_effort,
     )
-    validation_dataset = prepare_sft_source(
+    validation_source = balanced_subset(
         dataset[args.dataset.validation_split],
+        args.dataset.validation_examples,
+        args.train.seed,
+    )
+    validation_dataset = prepare_sft_source(
+        validation_source,
         args.train.enable_thinking,
         args.train.reasoning_effort,
     )
@@ -90,7 +107,7 @@ def main(args):
         processing_class=tokenizer,
         args=config,
         train_dataset=train_dataset,
-        eval_dataset=validation_dataset.select(range(64)),
+        eval_dataset=validation_dataset,
         callbacks=callbacks,
         peft_config=peft_config,
     )
