@@ -46,14 +46,31 @@ Published checkpoints are listed in the
 
 ## Results
 
-Results will be reported on the held-out `test` split using the executable
-environment evaluator and the same decoding configuration for every model.
+Results use 50 episodes from the held-out `test` split, with 10 episodes from
+each task type, using the executable environment evaluator.
 
-| Model | Training stage | Task success | Average return | Status |
-| --- | --- | ---: | ---: | --- |
-| `google/gemma-4-E2B-it` | Baseline | — | — | WIP |
-| `gemma-4-E2B-it-sft` | LoRA SFT | — | — | WIP |
+| Model | Training stage | Episodes | Task success | Average return |
+| --- | --- | ---: | ---: | ---: |
+| `google/gemma-4-E2B-it` | Baseline | 50 | 34% | 0.325 |
+| `gemma-4-E2B-it-sft` | LoRA SFT, final checkpoint | 50 | 40% | 0.452 |
 | `gemma-4-E2B-it-sft-opd` | LoRA OPD | — | — | WIP |
+
+| Task type | Baseline success | SFT success | Baseline return | SFT return |
+| --- | ---: | ---: | ---: | ---: |
+| Compliance first | 40% | 50% | 0.352 | 0.630 |
+| Direct supplier | 60% | 60% | 0.524 | 0.524 |
+| No feasible option | 0% | 20% | -0.050 | 0.180 |
+| Open search | 70% | 70% | 0.799 | 0.697 |
+| Preferred with fallback | 0% | 0% | 0.000 | 0.226 |
+
+The SFT checkpoint improves overall success by 6 percentage points and average
+return by 0.127. Its positive return on preferred-supplier fallback tasks,
+despite no complete successes, reflects intermediate rewards for useful actions.
+
+| Model | Input tokens | Output tokens | Total tokens | Latency |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline | 487,802 | 13,934 | 501,736 | 841.6 s |
+| LoRA SFT | 753,206 | 17,410 | 770,616 | 1,322.5 s |
 
 ## Environment description
 
