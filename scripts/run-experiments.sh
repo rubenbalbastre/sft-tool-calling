@@ -11,11 +11,8 @@ fi
 
 PYTHON="$REPOSITORY_ROOT/.venv/bin/python"
 BASE_MODEL="google/gemma-4-E2B-it" # "HuggingFaceTB/SmolLM2-135M-Instruct" #"google/gemma-4-E2B-it"
-TEACHER_MODEL="google/gemma-4-12B-it" # "HuggingFaceTB/SmolLM2-360M-Instruct" #"google/gemma-4-12B-it"
 SFT_RUN="${BASE_MODEL}-sft"
-OPD_RUN="${SFT_RUN}-opd"
 SFT_MODEL="$REPOSITORY_ROOT/outputs/$SFT_RUN/final_model"
-OPD_MODEL="$REPOSITORY_ROOT/outputs/$OPD_RUN/final_model"
 
 HF_HOME=/root/sft-tool-calling/.cache/huggingface
 HF_HUB_CACHE="$HF_HOME/hub"
@@ -61,14 +58,3 @@ echo "Evaluating base model..."
 # echo "Evaluating SFT model..."
 # "$PYTHON" -m src.evaluation.evaluate_local \
 #     model="$SFT_MODEL"
-
-# echo "Training OPD model..."
-# "$PYTHON" train_opd.py \
-#     train.model_name="$SFT_MODEL" \
-#     train.teacher_model="$TEACHER_MODEL" \
-#     train.run_name="$OPD_RUN" \
-#     train.final_model.output_dir=outputs
-
-# echo "Evaluating OPD model..."
-# "$PYTHON" -m src.evaluation.evaluate_local \
-#     model="$OPD_MODEL"

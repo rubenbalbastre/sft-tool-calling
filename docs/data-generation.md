@@ -12,13 +12,11 @@ python generate_data.py
 ## Splits
 
 - `sft_train` and `sft_validation`: complete supervised trajectories.
-- `opd_train` and `opd_validation`: prompt-only rows generated from different
-  seeded scenarios than SFT.
 - `test`: held-out prompt-only scenarios.
 
 All splits have the same columns:
 
-- `messages`: full SFT conversation or initial OPD/test prompt;
+- `messages`: full SFT conversation or initial test prompt;
 - `scenario_json`: hidden state for the environment and verifier;
 - `scenario_id`, `stage`, `language`, `trajectory_type`, and `difficulty`;
 - `prompt_variant`: language and template provenance for the surface form;
@@ -34,8 +32,8 @@ scenario is assigned to one split before prompt expansion, preventing semantic
 scenario leakage. Prompt templates are also held out by stage in every
 language:
 
-- training (`sft_train`, `opd_train`): templates 1–10;
-- validation (`sft_validation`, `opd_validation`): templates 11–15;
+- training: templates 1–10;
+- validation: templates 11–15;
 - test: templates 16–25.
 
 The values under `splits` are semantic scenario counts, not final row counts.
@@ -57,8 +55,6 @@ satisfy the requirement.
 python generate_data.py \
   splits.sft_train=40 \
   splits.sft_validation=5 \
-  splits.opd_train=40 \
-  splits.opd_validation=5 \
   splits.test=10 \
   output_dir=data/pilot/hf_dataset
 ```
