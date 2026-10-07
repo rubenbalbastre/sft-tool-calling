@@ -39,7 +39,7 @@ trajectories.
 
 | Experiment | Base model | Method | Status |
 | --- | --- | --- | --- |
-| `gemma-4-E2B-it-sft` | `google/gemma-4-E2B-it` | LoRA SFT | Experimental |
+| [`gemma-4-E2B-it-sft`](https://huggingface.co/rubenbalbastre/procurement-function-calling-gemma-4-E2B-it-sft) | `google/gemma-4-E2B-it` | LoRA SFT | Experimental |
 
 Published checkpoints are listed in the
 [project's Hugging Face collection](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
@@ -52,7 +52,7 @@ each task type, using the executable environment evaluator.
 | Model | Training stage | Episodes | Task success | Average return |
 | --- | --- | ---: | ---: | ---: |
 | `google/gemma-4-E2B-it` | Baseline | 50 | 34% | 0.325 |
-| `gemma-4-E2B-it-sft` | LoRA SFT, final checkpoint | 50 | 40% | 0.452 |
+| [`gemma-4-E2B-it-sft`](https://huggingface.co/rubenbalbastre/procurement-function-calling-gemma-4-E2B-it-sft) | LoRA SFT, final checkpoint | 50 | 40% | 0.452 |
 | `gemma-4-E2B-it-sft-opd` | LoRA OPD | — | — | WIP |
 
 | Task type | Baseline success | SFT success | Baseline return | SFT return |
@@ -110,6 +110,10 @@ dictionaries as actions.
 - **Tool integration:** model-specific chat templates, generated JSON schemas,
   multi-turn tool state, dynamic validation batching, and native LoRA serving in
   vLLM.
+
+The generated training and evaluation splits are published as the
+[`rubenbalbastre/supply-chain-tool-calling`](https://huggingface.co/datasets/rubenbalbastre/supply-chain-tool-calling)
+dataset.
 
 ## Quick start
 
