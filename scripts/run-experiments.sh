@@ -34,14 +34,23 @@ echo "Generating data..."
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
 
-echo "Training SFT model..."
-"$PYTHON" train_sft.py \
-    train.model_name="$BASE_MODEL" \
-    train.run_name="$SFT_RUN" \
-    train.final_model.output_dir=outputs
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL" "enable_thinking=true" "reasoning_effort=low"
 
-echo "Evaluating SFT model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$SFT_MODEL"
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL" "enable_thinking=true" "reasoning_effort=medium"
+
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL" "enable_thinking=true" "reasoning_effort=high"
+
+# echo "Training SFT model..."
+# "$PYTHON" train_sft.py \
+#     train.model_name="$BASE_MODEL" \
+#     train.run_name="$SFT_RUN" \
+#     train.final_model.output_dir=outputs
+
+# echo "Evaluating SFT model..."
+# "$PYTHON" -m src.evaluation.evaluate_local model="$SFT_MODEL"
 
 # echo "Training OPD model..."
 # "$PYTHON" train_opd.py \
