@@ -91,6 +91,7 @@ def prepare_sft_dataset(
     tokenized = dataset.map(
         tokenize_example,
         remove_columns=dataset.column_names,
+        num_proc=4,
         desc="Tokenizing SFT dataset",
     )
     return tokenized.filter(
