@@ -92,6 +92,11 @@ parser for Gemma 4 models and Hermes otherwise. Complete episodes run
 concurrently up to `concurrency`; turns remain ordered within each episode. An
 episode's latency timer starts only after it enters this pool, so waiting behind
 earlier episodes is excluded while its model calls and tool loop are included.
+With `batch_invariant=true`, the launcher sets `VLLM_BATCH_INVARIANT=1` for the
+server. This keeps outputs independent of dynamic batch composition, so
+reproducible evaluations can still use concurrent episodes. The feature may
+reduce throughput and requires support from the installed vLLM version and
+model implementation.
 When the selected local path contains `adapter_config.json`, the evaluator
 serves its recorded base model and mounts the directory as a native vLLM LoRA
 adapter. A merged checkpoint is not required.
