@@ -32,24 +32,6 @@ def deserialize_tool_arguments(messages):
     return normalized
 
 
-def format_sft_example(
-    example, tokenizer, enable_thinking, reasoning_effort
-):
-    """Render one stored conversation with model-compatible tool arguments."""
-    messages = deserialize_tool_arguments(example["source_messages"])
-    if not messages or messages[0]["role"] != "system":
-        messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
-
-    return tokenizer.apply_chat_template(
-        messages,
-        tools=CHAT_TOOLS,
-        tokenize=False,
-        add_generation_prompt=False,
-        enable_thinking=enable_thinking,
-        reasoning_effort=reasoning_effort,
-    )
-
-
 def enable_assistant_tool_call_mask(tokenizer):
     """Mark Gemma 4 assistant tool calls for TRL assistant-only loss."""
     template = tokenizer.chat_template
@@ -81,7 +63,7 @@ def prepare_sft_source(dataset, enable_thinking, reasoning_effort):
     """Return structured conversations so TRL can build assistant masks."""
     rows = []
     for example in dataset:
-        messages = deserialize_tool_arguments(example["messages"])
+        messages = [dict(message) for message in example["messages"]]
         if not messages or messages[0]["role"] != "system":
             messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
         rows.append({
@@ -92,7 +74,17 @@ def prepare_sft_source(dataset, enable_thinking, reasoning_effort):
                 "reasoning_effort": reasoning_effort,
             },
         })
-    return Dataset.from_list(rows)
+
+    prepared = Dataset.from_list(rows)
+
+    def deserialize_batch(batch):
+        batch["messages"] = [
+            deserialize_tool_arguments(messages)
+            for messages in batch["messages"]
+        ]
+        return batch
+
+    return prepared.with_transform(deserialize_batch)
 
 
 def prepare_opd_source(dataset):
