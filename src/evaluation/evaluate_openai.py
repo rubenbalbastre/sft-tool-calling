@@ -68,7 +68,7 @@ def load_eval_defaults():
         "model": config.openai_model,
         "reasoning_effort": config.reasoning_effort,
         "temperature": float(config.temperature),
-        "episodes": int(config.episodes),
+        "episodes": None if config.episodes is None else int(config.episodes),
         "seed": int(config.seed),
         "max_steps": int(config.max_steps),
         "output_root": PROJECT_ROOT / config.output_root,
@@ -244,7 +244,7 @@ def main():
         )
         results.append(result)
         print(
-            f"[{index}/{args.episodes}] {result['kind']}: "
+            f"[{index}/{len(rows)}] {result['kind']}: "
             f"{'PASS' if result['success'] else 'FAIL'}"
         )
 

@@ -32,16 +32,23 @@ echo "Generating data..."
 #   --seed 1234
 
 echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" dataset.prompt_variant=null episodes=null
 
 echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL" "enable_thinking=true" "reasoning_effort=low"
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" enable_thinking=true reasoning_effort=low \
+    dataset.prompt_variant=null episodes=null
 
 echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL" "enable_thinking=true" "reasoning_effort=medium"
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" enable_thinking=true reasoning_effort=medium \
+    dataset.prompt_variant=null episodes=null
 
 echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL" "enable_thinking=true" "reasoning_effort=high"
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" enable_thinking=true reasoning_effort=high \
+    dataset.prompt_variant=null episodes=null
 
 # echo "Training SFT model..."
 # "$PYTHON" train_sft.py \
@@ -50,7 +57,8 @@ echo "Evaluating base model..."
 #     train.final_model.output_dir=outputs
 
 # echo "Evaluating SFT model..."
-# "$PYTHON" -m src.evaluation.evaluate_local model="$SFT_MODEL"
+# "$PYTHON" -m src.evaluation.evaluate_local \
+#     model="$SFT_MODEL" dataset.prompt_variant=null episodes=null
 
 # echo "Training OPD model..."
 # "$PYTHON" train_opd.py \
@@ -60,4 +68,5 @@ echo "Evaluating base model..."
 #     train.final_model.output_dir=outputs
 
 # echo "Evaluating OPD model..."
-# "$PYTHON" -m src.evaluation.evaluate_local model="$OPD_MODEL"
+# "$PYTHON" -m src.evaluation.evaluate_local \
+#     model="$OPD_MODEL" dataset.prompt_variant=null episodes=null

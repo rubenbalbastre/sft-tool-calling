@@ -29,20 +29,20 @@ def load_evaluation_rows(
         if prompt_variant and row["prompt_variant"] != prompt_variant:
             continue
         scenario = json.loads(row["scenario_json"])
-        scenario_id = scenario["scenario_id"]
-        if scenario_id not in seen:
-            seen.add(scenario_id)
+        row_id = (scenario["scenario_id"], row["prompt_variant"])
+        if row_id not in seen:
+            seen.add(row_id)
             rows.append({"scenario": scenario})
 
-    if episodes > len(rows):
+    if episodes is not None and episodes > len(rows):
         raise ValueError(
             f"Requested {episodes} episodes, but split {split!r} contains "
-            f"only {len(rows)} unique scenarios for prompt variant "
+            f"only {len(rows)} unique scenario variants for prompt variant "
             f"{prompt_variant!r}"
         )
 
     random.Random(seed).shuffle(rows)
-    return rows[:episodes]
+    return rows if episodes is None else rows[:episodes]
 
 
 def create_run_directory(output_root):

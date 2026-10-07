@@ -144,6 +144,37 @@ class EvaluatorTest(unittest.TestCase):
         self.assertTrue(all(row["language"] == "English" for row in scenarios))
         self.assertTrue(all(row["prompt_variant"] == "english_1" for row in scenarios))
 
+    def test_evaluation_can_load_every_prompt_variant(self):
+        sizes = {
+            "sft_train": 1,
+            "sft_validation": 1,
+            "opd_train": 1,
+            "opd_validation": 1,
+            "test": 3,
+        }
+        dataset = build_pipeline_dataset(
+            sizes,
+            seed=42,
+            languages=["English", "Spanish"],
+            templates_per_language=2,
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            dataset.save_to_disk(temporary_directory)
+            rows = load_evaluation_rows(
+                temporary_directory,
+                "test",
+                prompt_variant=None,
+                episodes=None,
+                seed=1234,
+            )
+
+        scenarios = [row["scenario"] for row in rows]
+        self.assertEqual(len(scenarios), 12)
+        self.assertEqual(
+            len({(row["scenario_id"], row["prompt_variant"]) for row in scenarios}),
+            12,
+        )
+
     def test_openai_tool_schemas_are_strict(self):
         for tool in TOOLS:
             parameters = tool["parameters"]

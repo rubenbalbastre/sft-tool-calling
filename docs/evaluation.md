@@ -3,8 +3,21 @@
 Both local and OpenAI evaluation load unique held-out scenarios from the
 Hugging Face dataset configured under `dataset` in `config/eval.yaml`. The
 default is the `test` split at `data/pipeline/hf_dataset/`, using the
-`english_1` prompt variant. `episodes` limits the number of unique scenarios;
-`seed` deterministically controls their order and subset.
+`english_1` prompt variant. `episodes` limits the number of unique
+scenario–variant pairs; `seed` deterministically controls their order and
+subset.
+
+To evaluate every prompt variant for every test scenario, use:
+
+```bash
+python -m src.evaluation.evaluate_local \
+  dataset.prompt_variant=null \
+  episodes=null
+```
+
+With the default generated dataset, this evaluates 50 scenarios across 40
+multilingual prompt variants, for 2,000 episodes. This is substantially more
+expensive than evaluating all 50 scenarios with one fixed prompt variant.
 
 Both evaluators run fresh seeded procurement scenarios through the same
 environment. Results are written to numbered directories:

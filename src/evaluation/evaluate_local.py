@@ -531,7 +531,7 @@ def main(args):
 
         for index, result in enumerate(results, 1):
             print(
-                f"[{index}/{args.episodes}] {result['kind']}: "
+                f"[{index}/{len(rows)}] {result['kind']}: "
                 f"{'PASS' if result['success'] else 'FAIL'}"
             )
 
