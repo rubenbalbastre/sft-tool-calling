@@ -113,7 +113,7 @@ class EvaluatorTest(unittest.TestCase):
         self.assertEqual(defaults["temperature"], config.temperature)
         self.assertEqual(defaults["episodes"], config.episodes)
         self.assertEqual(defaults["dataset_split"], config.dataset.split)
-        self.assertEqual(defaults["prompt_variant"], config.dataset.prompt_variant)
+        self.assertIsNone(defaults["prompt_variant"])
 
     def test_evaluation_rows_come_from_unique_test_scenarios(self):
         sizes = {
@@ -127,7 +127,11 @@ class EvaluatorTest(unittest.TestCase):
             sizes,
             seed=42,
             languages=["English", "Spanish"],
-            templates_per_language=2,
+            template_splits={
+                "train": [3],
+                "validation": [4],
+                "test": [1, 2],
+            },
         )
         with tempfile.TemporaryDirectory() as temporary_directory:
             dataset.save_to_disk(temporary_directory)
@@ -156,7 +160,11 @@ class EvaluatorTest(unittest.TestCase):
             sizes,
             seed=42,
             languages=["English", "Spanish"],
-            templates_per_language=2,
+            template_splits={
+                "train": [3],
+                "validation": [4],
+                "test": [1, 2],
+            },
         )
         with tempfile.TemporaryDirectory() as temporary_directory:
             dataset.save_to_disk(temporary_directory)

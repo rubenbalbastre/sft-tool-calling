@@ -49,6 +49,10 @@ Published checkpoints are listed in the
 Results use 50 episodes from the held-out `test` split, with 10 episodes from
 each task type, using the executable environment evaluator.
 
+These preliminary runs predate the template-level holdout. The next experiment
+will train on templates 1–7, validate on template 8, and report final results on
+unseen templates 9–10.
+
 | Model | Reasoning | Training tokens | Task success | Average return | Latency |
 | --- | --- | ---: | ---: | ---: | ---: |
 | Base | None | — | 34% | 0.325 | 841.6 s |

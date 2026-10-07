@@ -33,22 +33,19 @@ echo "Generating data..."
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" dataset.prompt_variant=null episodes=null
+    model="$BASE_MODEL"
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true reasoning_effort=low \
-    dataset.prompt_variant=null episodes=null
+    model="$BASE_MODEL" enable_thinking=true reasoning_effort=low
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true reasoning_effort=medium \
-    dataset.prompt_variant=null episodes=null
+    model="$BASE_MODEL" enable_thinking=true reasoning_effort=medium
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true reasoning_effort=high \
-    dataset.prompt_variant=null episodes=null
+    model="$BASE_MODEL" enable_thinking=true reasoning_effort=high
 
 # echo "Training SFT model..."
 # "$PYTHON" train_sft.py \
@@ -58,7 +55,7 @@ echo "Evaluating base model..."
 
 # echo "Evaluating SFT model..."
 # "$PYTHON" -m src.evaluation.evaluate_local \
-#     model="$SFT_MODEL" dataset.prompt_variant=null episodes=null
+#     model="$SFT_MODEL"
 
 # echo "Training OPD model..."
 # "$PYTHON" train_opd.py \
@@ -69,4 +66,4 @@ echo "Evaluating base model..."
 
 # echo "Evaluating OPD model..."
 # "$PYTHON" -m src.evaluation.evaluate_local \
-#     model="$OPD_MODEL" dataset.prompt_variant=null episodes=null
+#     model="$OPD_MODEL"

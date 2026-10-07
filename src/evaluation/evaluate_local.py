@@ -513,7 +513,7 @@ def main(args):
     rows = load_evaluation_rows(
         PROJECT_ROOT / args.dataset.file,
         args.dataset.split,
-        args.dataset.prompt_variant,
+        args.dataset.get("prompt_variant"),
         args.episodes,
         args.seed,
     )

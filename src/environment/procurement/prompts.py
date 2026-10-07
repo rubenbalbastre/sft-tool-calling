@@ -110,18 +110,22 @@ def format_prompt(scenario, language="English", template_index=0):
 def prompt_variants(
     scenario,
     languages=LANGUAGES,
-    templates_per_language=TEMPLATES_PER_LANGUAGE,
+    template_indices=range(1, TEMPLATES_PER_LANGUAGE + 1),
 ):
     """Yield prompt variants that retain the semantic scenario identifier."""
-    if not 1 <= templates_per_language <= TEMPLATES_PER_LANGUAGE:
+    template_indices = list(template_indices)
+    if not template_indices or any(
+        not 1 <= index <= TEMPLATES_PER_LANGUAGE for index in template_indices
+    ):
         raise ValueError(
-            f"templates_per_language must be between 1 and {TEMPLATES_PER_LANGUAGE}"
+            f"template indices must be between 1 and {TEMPLATES_PER_LANGUAGE}"
         )
     for language in languages:
-        for template_index in range(templates_per_language):
+        for template_number in template_indices:
+            template_index = template_number - 1
             variant = deepcopy(scenario)
             variant["language"] = language
-            variant["prompt_variant"] = f"{language.lower()}_{template_index + 1}"
+            variant["prompt_variant"] = f"{language.lower()}_{template_number}"
             variant["user_request"] = format_prompt(
                 variant, language, template_index
             )

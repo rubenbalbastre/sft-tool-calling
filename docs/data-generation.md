@@ -30,16 +30,21 @@ Only `messages` is model input. Never include `scenario_json` or
 
 Generation is seeded and cycles through direct-supplier, open-search,
 compliance, preferred-with-fallback, and no-feasible-option tasks. Each semantic
-scenario is assigned to one split before it is expanded into ten English, ten
-Spanish, ten German, and ten French prompts. All 40 variants retain the same
-`scenario_id` and remain in that split, preventing semantic scenario leakage.
+scenario is assigned to one split before prompt expansion, preventing semantic
+scenario leakage. Prompt templates are also held out by stage in every
+language:
+
+- training (`sft_train`, `opd_train`): templates 1–7;
+- validation (`sft_validation`, `opd_validation`): template 8;
+- test: templates 9–10.
 
 The values under `splits` are semantic scenario counts, not final row counts.
-With the default four languages and ten templates, each value produces 40
-times as many dataset rows. Complete SFT conversations are produced by running
-a reference policy once through the same environment used for evaluation and
-reusing that verified action trace across its prompt variants. Tool arguments
-are JSON strings under `assistant.tool_calls[].function.arguments`.
+With four languages, each training scenario produces 28 rows, each validation
+scenario produces 4, and each test scenario produces 8. Complete SFT
+conversations are produced by running a reference policy once through the same
+environment used for evaluation and reusing that verified action trace across
+its prompt variants. Tool arguments are JSON strings under
+`assistant.tool_calls[].function.arguments`.
 
 Reference routes follow the user instruction: preferred suppliers are quoted
 before searching for fallbacks, and compliance-first trajectories inspect all
@@ -58,12 +63,14 @@ python generate_data.py \
   output_dir=data/pilot/hf_dataset
 ```
 
-Limit prompt expansion during a small experiment with:
+Override the template allocation with:
 
 ```bash
 python generate_data.py \
   prompt_generation.languages='[English,Spanish]' \
-  prompt_generation.templates_per_language=2
+  prompt_generation.templates.train='[1,2,3]' \
+  prompt_generation.templates.validation='[4]' \
+  prompt_generation.templates.test='[5]'
 ```
 
 ## Load locally

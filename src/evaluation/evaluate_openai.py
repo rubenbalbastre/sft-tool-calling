@@ -74,7 +74,7 @@ def load_eval_defaults():
         "output_root": PROJECT_ROOT / config.output_root,
         "dataset_file": config.dataset.file,
         "dataset_split": config.dataset.split,
-        "prompt_variant": config.dataset.prompt_variant,
+        "prompt_variant": config.dataset.get("prompt_variant"),
     }
 
 
