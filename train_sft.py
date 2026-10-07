@@ -10,7 +10,7 @@ import wandb
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-from src.training.setup import load_model_and_tokenizer, setup
+from src.training.setup import load_model_and_tokenizer, resume_checkpoint, setup
 from src.training.preprocessing import (
     enable_assistant_tool_call_mask,
     prepare_sft_dataset,
@@ -135,7 +135,10 @@ def main(args):
     )
     print("Trainer initialized successfully.")
 
-    trainer.train()
+    checkpoint = resume_checkpoint(args.train.model_name)
+    if checkpoint:
+        print(f"Resuming training from {checkpoint}")
+    trainer.train(resume_from_checkpoint=checkpoint)
 
     if args.train.final_model.save:
         trainer.save_model(str(final_model_dir))
