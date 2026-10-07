@@ -49,28 +49,38 @@ Published checkpoints are listed in the
 Results use 50 episodes from the held-out `test` split, with 10 episodes from
 each task type, using the executable environment evaluator.
 
-| Model | Training stage | Episodes | Task success | Average return |
-| --- | --- | ---: | ---: | ---: |
-| `google/gemma-4-E2B-it` | Baseline | 50 | 34% | 0.325 |
-| [`gemma-4-E2B-it-sft`](https://huggingface.co/rubenbalbastre/procurement-function-calling-gemma-4-E2B-it-sft) | LoRA SFT, final checkpoint | 50 | 40% | 0.452 |
-| `gemma-4-E2B-it-sft-opd` | LoRA OPD | — | — | WIP |
+| Model | Reasoning | Training tokens | Task success | Average return | Latency |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Base | None | — | 34% | 0.325 | 841.6 s |
+| Base | Low | — | — | — | — |
+| Base | Medium | — | — | — | — |
+| Base | High | — | — | — | — |
+| LoRA SFT | None | 710,641 | 40% | 0.452 | 1,322.5 s |
 
-| Task type | Baseline success | SFT success | Baseline return | SFT return |
-| --- | ---: | ---: | ---: | ---: |
-| Compliance first | 40% | 50% | 0.352 | 0.630 |
-| Direct supplier | 60% | 60% | 0.524 | 0.524 |
-| No feasible option | 0% | 20% | -0.050 | 0.180 |
-| Open search | 70% | 70% | 0.799 | 0.697 |
-| Preferred with fallback | 0% | 0% | 0.000 | 0.226 |
+Training tokens seen is taken from the trainer state at the final and best SFT
+checkpoint (step 24). It counts non-padding input tokens processed by the model,
+including context tokens whose labels are masked from the supervised loss.
+
+Task-level cells report `success rate / average return`.
+
+| Model | Reasoning | Compliance first | Direct supplier | No feasible option | Open search | Preferred with fallback |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Base | None | 40% / 0.352 | 60% / 0.524 | 0% / -0.050 | 70% / 0.799 | 0% / 0.000 |
+| LoRA SFT | None | 50% / 0.630 | 60% / 0.524 | 20% / 0.180 | 70% / 0.697 | 0% / 0.226 |
 
 The SFT checkpoint improves overall success by 6 percentage points and average
 return by 0.127. Its positive return on preferred-supplier fallback tasks,
 despite no complete successes, reflects intermediate rewards for useful actions.
 
-| Model | Input tokens | Output tokens | Total tokens | Latency |
-| --- | ---: | ---: | ---: | ---: |
-| Baseline | 487,802 | 13,934 | 501,736 | 841.6 s |
-| LoRA SFT | 753,206 | 17,410 | 770,616 | 1,322.5 s |
+| Model | Reasoning | Input tokens | Output tokens | Total tokens |
+| --- | --- | ---: | ---: | ---: |
+| Base | None | 487,802 | 13,934 | 501,736 |
+| LoRA SFT | None | 753,206 | 17,410 | 770,616 |
+
+The SFT model generated longer multi-turn trajectories (7.86 versus 6.86 steps
+per episode). Because every step resends the growing conversation and tool
+history, these additional steps increase both cumulative input tokens and total
+evaluation latency.
 
 ## Environment description
 
