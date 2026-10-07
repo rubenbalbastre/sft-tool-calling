@@ -1,10 +1,13 @@
 import unittest
+import tempfile
+from pathlib import Path
 
 from src.training.preprocessing import (
     GEMMA_TOOL_CALL_END,
     GEMMA_TOOL_CALL_STARTS,
     enable_assistant_tool_call_mask,
 )
+from src.training.setup import resume_checkpoint
 
 
 class RecordingTokenizer:
@@ -12,6 +15,13 @@ class RecordingTokenizer:
 
 
 class TrainingPreprocessingTest(unittest.TestCase):
+    def test_resume_checkpoint_requires_trainer_state(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            checkpoint = Path(temporary_directory)
+            self.assertIsNone(resume_checkpoint(checkpoint))
+            (checkpoint / "trainer_state.json").write_text("{}")
+            self.assertEqual(resume_checkpoint(checkpoint), str(checkpoint))
+
     def test_gemma_tool_call_mask_excludes_following_tool_response(self):
         tokenizer = RecordingTokenizer()
         tokenizer.chat_template = (

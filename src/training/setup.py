@@ -1,11 +1,22 @@
 import os
+from pathlib import Path
+
 from huggingface_hub import login
 from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 import wandb
 
 
 def load_model_and_tokenizer(args):
-    model = AutoModelForCausalLM.from_pretrained(args.train.model_name)
+    model_path = Path(args.train.model_name)
+    if (model_path / "adapter_config.json").is_file():
+        from peft import AutoPeftModelForCausalLM
+
+        model = AutoPeftModelForCausalLM.from_pretrained(
+            args.train.model_name,
+            is_trainable=True,
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(args.train.model_name)
     tokenizer = AutoTokenizer.from_pretrained(args.train.model_name)
 
     # TRL's tool loop expects this value on the top-level config. Composite
@@ -18,6 +29,12 @@ def load_model_and_tokenizer(args):
         )
 
     return model, tokenizer
+
+
+def resume_checkpoint(model_name):
+    """Return a local Trainer checkpoint path, or None for a fresh run."""
+    path = Path(model_name)
+    return str(path) if (path / "trainer_state.json").is_file() else None
 
 
 def setup(run_name=None):
