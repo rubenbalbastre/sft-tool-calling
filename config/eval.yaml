@@ -13,7 +13,7 @@ max_new_tokens: 1024
 temperature: 0.0
 enable_thinking: false
 reasoning_effort: "none" # none, low, medium, high
-concurrency: 8 # Maximum simultaneous vLLM inference requests.
+concurrency: 8 # Maximum simultaneous evaluation episodes.
 
 # Used by the direct Transformers backend.
 device: "auto"

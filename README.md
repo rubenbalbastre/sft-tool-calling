@@ -51,15 +51,17 @@ each task type, using the executable environment evaluator.
 
 These preliminary runs predate the template-level holdout. The next experiment
 will train on templates 1–7, validate on template 8, and report final results on
-unseen templates 9–10.
+unseen templates 9–10. Their latency values are per-episode averages derived
+from the earlier queue-inclusive scheduler; new runs start timing only after an
+episode enters the concurrency pool.
 
-| Model | Reasoning | Training tokens | Task success | Average return | Latency |
+| Model | Reasoning | Training tokens | Task success | Average return | Mean episode latency |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Base | None | — | 34% | 0.325 | 841.6 s |
+| Base | None | — | 34% | 0.325 | 16.8 s |
 | Base | Low | — | — | — | — |
 | Base | Medium | — | — | — | — |
 | Base | High | — | — | — | — |
-| LoRA SFT | None | 710,641 | 40% | 0.452 | 1,322.5 s |
+| LoRA SFT | None | 710,641 | 40% | 0.452 | 26.5 s |
 
 Training tokens seen is taken from the trainer state at the final and best SFT
 checkpoint (step 24). It counts non-padding input tokens processed by the model,

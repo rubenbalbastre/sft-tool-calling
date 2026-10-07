@@ -218,6 +218,35 @@ class EvaluatorTest(unittest.TestCase):
             self.assertEqual(create_run_directory(root).name, "eval-0001")
             self.assertEqual(create_run_directory(root).name, "eval-0002")
 
+    def test_summary_reports_episode_latency_and_steps(self):
+        results = [
+            {
+                "kind": "open_search",
+                "success": success,
+                "episode_return": float(success),
+                "steps": steps,
+                "latency_seconds": latency,
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
+            }
+            for success, steps, latency in (
+                (True, 2, 1.0),
+                (False, 4, 2.0),
+                (True, 6, 10.0),
+            )
+        ]
+
+        summary = summarize(results)
+
+        self.assertEqual(summary["overall"]["average_steps"], 4.0)
+        self.assertEqual(summary["mean_episode_latency_seconds"], 13 / 3)
+        self.assertEqual(summary["median_episode_latency_seconds"], 2.0)
+        self.assertEqual(summary["p95_episode_latency_seconds"], 10.0)
+        self.assertEqual(summary["aggregate_episode_latency_seconds"], 13.0)
+
     def test_direct_supplier_online_rollout(self):
         scenario = generate_scenarios(1, "test", 77)[0]
         env = ProcurementEnvironment(scenario)

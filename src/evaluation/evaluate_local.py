@@ -258,9 +258,7 @@ class VLLMBackend:
         return assistant_message, calls, usage
 
 
-async def run_episode(
-    backend, row, prompt, max_steps, inference_semaphore=None
-):
+async def run_episode(backend, row, prompt, max_steps):
     """Run one ordered episode while allowing other episodes to make progress."""
     scenario = row["scenario"]
     user_request = scenario["user_request"]
@@ -278,13 +276,7 @@ async def run_episode(
         output_error = None
         assistant_message = None
         try:
-            if inference_semaphore:
-                async with inference_semaphore:
-                    assistant_message, calls, step_usage = await backend.generate(
-                        messages
-                    )
-            else:
-                assistant_message, calls, step_usage = await backend.generate(messages)
+            assistant_message, calls, step_usage = await backend.generate(messages)
             for key in usage:
                 usage[key] += step_usage[key]
             if len(calls) != 1:
@@ -344,10 +336,15 @@ async def run_episode(
 
 
 async def run_concurrent_episodes(backend, rows, prompt, max_steps, concurrency):
-    """Keep up to `concurrency` model inference requests active at once."""
+    """Run up to `concurrency` complete episodes at once."""
     semaphore = asyncio.Semaphore(concurrency)
+
+    async def run_when_admitted(row):
+        async with semaphore:
+            return await run_episode(backend, row, prompt, max_steps)
+
     return await asyncio.gather(*(
-        run_episode(backend, row, prompt, max_steps, semaphore)
+        run_when_admitted(row)
         for row in rows
     ))
 

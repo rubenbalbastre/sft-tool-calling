@@ -1,7 +1,9 @@
 """Backend-neutral helpers for model evaluation."""
 
 import json
+import math
 import random
+import statistics
 import time
 from collections import defaultdict
 
@@ -91,8 +93,10 @@ def summarize(results):
             "average_return": (
                 sum(row["episode_return"] for row in rows) / len(rows)
             ),
+            "average_steps": sum(row["steps"] for row in rows) / len(rows),
         }
 
+    episode_latencies = sorted(row["latency_seconds"] for row in results)
     return {
         "overall": metrics(results),
         "by_kind": {
@@ -102,7 +106,14 @@ def summarize(results):
             key: sum(row["usage"][key] for row in results)
             for key in ("input_tokens", "output_tokens", "total_tokens")
         },
-        "latency_seconds": sum(row["latency_seconds"] for row in results),
+        "mean_episode_latency_seconds": (
+            sum(episode_latencies) / len(episode_latencies)
+        ),
+        "median_episode_latency_seconds": statistics.median(episode_latencies),
+        "p95_episode_latency_seconds": episode_latencies[
+            math.ceil(0.95 * len(episode_latencies)) - 1
+        ],
+        "aggregate_episode_latency_seconds": sum(episode_latencies),
     }
 
 
