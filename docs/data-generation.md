@@ -80,11 +80,13 @@ example = dataset["sft_train"][0]
 Set `HF_TOKEN` in the shell or the repository's ignored `.env`, then run:
 
 ```bash
-python generate_data.py \
-  hub.push=true \
-  hub.repo_id=your-account/procurement-tool-calling \
-  hub.config_name=pipeline-v1
+python generate_data.py hub.push=true
 ```
+
+By default, this updates
+[`rubenbalbastre/supply-chain-tool-calling`](https://huggingface.co/datasets/rubenbalbastre/supply-chain-tool-calling)
+under the `default` configuration. Override `hub.repo_id` and
+`hub.config_name` to publish elsewhere.
 
 Load the named configuration with:
 
@@ -92,7 +94,7 @@ Load the named configuration with:
 from datasets import load_dataset
 
 dataset = load_dataset(
-    "your-account/procurement-tool-calling",
-    "pipeline-v1",
+    "rubenbalbastre/supply-chain-tool-calling",
+    "default",
 )
 ```
