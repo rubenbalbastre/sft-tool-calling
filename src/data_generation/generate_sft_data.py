@@ -245,11 +245,6 @@ def build_pipeline_dataset(
         "tool_sequence": List(Value("string")),
     })
 
-    template_splits = template_splits or {
-        "train": range(1, 8),
-        "validation": [8],
-        "test": [9, 10],
-    }
     datasets = {}
     for offset, split in enumerate(expected_splits, start=1):
         stage = "sft" if split.startswith("sft_") else (
