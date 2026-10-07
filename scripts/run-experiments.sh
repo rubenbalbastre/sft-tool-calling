@@ -48,10 +48,6 @@ echo "Evaluating base model..."
     model="$BASE_MODEL" enable_thinking=true
 
 
-echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true
-
 # echo "Training SFT model..."
 # "$PYTHON" train_sft.py \
 #     train.model_name="$BASE_MODEL" \
