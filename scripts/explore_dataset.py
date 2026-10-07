@@ -1,13 +1,27 @@
+import argparse
 from pathlib import Path
 import sys
 
 from datasets import load_from_disk
+from transformers import AutoTokenizer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.training.preprocessing import prepare_sft_source
+from src.environment.procurement import CHAT_TOOLS
+from src.training.preprocessing import (
+    enable_assistant_tool_call_mask,
+    prepare_sft_source,
+)
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--model",
+    default="google/gemma-4-E2B-it",
+    help="Tokenizer name or local model path.",
+)
+args = parser.parse_args()
 
 
 dataset = load_from_disk(PROJECT_ROOT / "data/pipeline/hf_dataset")["sft_train"]
@@ -42,3 +56,45 @@ for index, message in enumerate(prepared_example["messages"]):
         sep="\n",
         end="\n\n",
     )
+
+tokenizer = AutoTokenizer.from_pretrained(args.model)
+enable_assistant_tool_call_mask(tokenizer)
+template_kwargs = prepared_example["chat_template_kwargs"]
+print(f"Template kwargs: {template_kwargs}")
+
+rendered_prompt = tokenizer.apply_chat_template(
+    prepared_example["messages"],
+    tools=CHAT_TOOLS,
+    tokenize=False,
+    add_generation_prompt=False,
+    **template_kwargs,
+)
+tokenized = tokenizer.apply_chat_template(
+    prepared_example["messages"],
+    tools=CHAT_TOOLS,
+    tokenize=True,
+    add_generation_prompt=False,
+    return_dict=True,
+    return_assistant_tokens_mask=True,
+    **template_kwargs,
+)
+input_ids = tokenized["input_ids"]
+attention_mask = tokenized["attention_mask"]
+assistant_mask = tokenized["assistant_masks"]
+loss_mask = [
+    attended and assistant
+    for attended, assistant in zip(attention_mask, assistant_mask)
+]
+print("Attention mask:", attention_mask)
+print("Loss mask:", [int(value) for value in loss_mask])
+token_count = (
+    len(input_ids[0])
+    if input_ids and isinstance(input_ids[0], list)
+    else len(input_ids)
+)
+
+
+print("=" * 80)
+print(f"Rendered prompt for {args.model} ({token_count} tokens)")
+print("=" * 80)
+print(rendered_prompt)
