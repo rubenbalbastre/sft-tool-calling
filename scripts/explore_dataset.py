@@ -9,10 +9,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.environment.procurement import CHAT_TOOLS
+from src.environment.procurement import CHAT_TOOLS, SYSTEM_PROMPT
 from src.training.preprocessing import (
+    deserialize_tool_arguments,
     enable_assistant_tool_call_mask,
-    prepare_sft_source,
 )
 
 parser = argparse.ArgumentParser()
@@ -26,8 +26,7 @@ args = parser.parse_args()
 
 dataset = load_from_disk(PROJECT_ROOT / "data/pipeline/hf_dataset")["sft_train"]
 
-examples = dataset.select(range(2))
-example = examples[0]
+example = dataset[0]
 
 # for index, message in enumerate(example["messages"]):
 #     print(
@@ -40,13 +39,13 @@ example = examples[0]
 #         end="\n\n",
 #     )
 
-prepared = prepare_sft_source(
-    examples,
-    enable_thinking=False,
-    reasoning_effort="none",
-)
-prepared_example = prepared[0]
-for index, message in enumerate(prepared_example["messages"]):
+messages = [dict(message) for message in example["messages"]]
+if not messages or messages[0]["role"] != "system":
+    messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+messages = deserialize_tool_arguments(messages)
+template_kwargs = {"enable_thinking": False, "reasoning_effort": "none"}
+
+for index, message in enumerate(messages):
     print(
         index,
         f"role: {message['role']}",
@@ -59,18 +58,17 @@ for index, message in enumerate(prepared_example["messages"]):
 
 tokenizer = AutoTokenizer.from_pretrained(args.model)
 enable_assistant_tool_call_mask(tokenizer)
-template_kwargs = prepared_example["chat_template_kwargs"]
 print(f"Template kwargs: {template_kwargs}")
 
 rendered_prompt = tokenizer.apply_chat_template(
-    prepared_example["messages"],
+    messages,
     tools=CHAT_TOOLS,
     tokenize=False,
     add_generation_prompt=False,
     **template_kwargs,
 )
 tokenized = tokenizer.apply_chat_template(
-    prepared_example["messages"],
+    messages,
     tools=CHAT_TOOLS,
     tokenize=True,
     add_generation_prompt=False,

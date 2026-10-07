@@ -2,8 +2,6 @@
 
 import json
 
-from datasets import Dataset
-
 from src.environment.procurement import CHAT_TOOLS, SYSTEM_PROMPT
 
 
@@ -59,32 +57,47 @@ def enable_assistant_tool_call_mask(tokenizer):
     tokenizer.chat_template = template
 
 
-def prepare_sft_source(dataset, enable_thinking, reasoning_effort):
-    """Return structured conversations so TRL can build assistant masks."""
-    rows = []
-    for example in dataset:
+def prepare_sft_dataset(
+    dataset,
+    tokenizer,
+    enable_thinking,
+    reasoning_effort,
+    max_length,
+):
+    """Materialize tokenized SFT examples with assistant-only labels."""
+    def tokenize_example(example):
         messages = [dict(message) for message in example["messages"]]
         if not messages or messages[0]["role"] != "system":
             messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
-        rows.append({
-            "messages": messages,
-            "tools": json.dumps(CHAT_TOOLS),
-            "chat_template_kwargs": {
-                "enable_thinking": enable_thinking,
-                "reasoning_effort": reasoning_effort,
-            },
-        })
 
-    prepared = Dataset.from_list(rows)
-
-    def deserialize_batch(batch):
-        batch["messages"] = [
-            deserialize_tool_arguments(messages)
-            for messages in batch["messages"]
+        tokenized = tokenizer.apply_chat_template(
+            deserialize_tool_arguments(messages),
+            tools=CHAT_TOOLS,
+            tokenize=True,
+            add_generation_prompt=False,
+            return_dict=True,
+            return_assistant_tokens_mask=True,
+            enable_thinking=enable_thinking,
+            reasoning_effort=reasoning_effort,
+        )
+        input_ids = tokenized["input_ids"][:max_length]
+        assistant_mask = tokenized["assistant_masks"][:max_length]
+        labels = [
+            token_id if is_assistant else -100
+            for token_id, is_assistant in zip(input_ids, assistant_mask)
         ]
-        return batch
+        return {"input_ids": input_ids, "labels": labels}
 
-    return prepared.with_transform(deserialize_batch)
+    tokenized = dataset.map(
+        tokenize_example,
+        remove_columns=dataset.column_names,
+        num_proc=4,
+        desc="Tokenizing SFT dataset",
+    )
+    return tokenized.filter(
+        lambda example: any(label != -100 for label in example["labels"]),
+        desc="Dropping fully masked examples",
+    )
 
 
 def prepare_opd_source(dataset):

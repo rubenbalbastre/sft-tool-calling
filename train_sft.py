@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 from src.training.setup import load_model_and_tokenizer, setup
 from src.training.preprocessing import (
     enable_assistant_tool_call_mask,
-    prepare_sft_source,
+    prepare_sft_dataset,
 )
 from src.training.lora import build_lora_config
 from src.training.callbacks import (
@@ -55,20 +55,24 @@ def main(args):
 
     dataset_path = PROJECT_ROOT / args.dataset.file
     dataset = load_from_disk(str(dataset_path))
-    train_dataset = prepare_sft_source(
+    train_dataset = prepare_sft_dataset(
         dataset[args.dataset.train_split],
+        tokenizer,
         args.train.enable_thinking,
         args.train.reasoning_effort,
+        args.train.max_seq_length,
     )
     validation_source = balanced_subset(
         dataset[args.dataset.validation_split],
         args.dataset.validation_examples,
         args.train.seed,
     )
-    validation_dataset = prepare_sft_source(
+    validation_dataset = prepare_sft_dataset(
         validation_source,
+        tokenizer,
         args.train.enable_thinking,
         args.train.reasoning_effort,
+        args.train.max_seq_length,
     )
     print("Datasets loaded successfully.")
 
@@ -84,7 +88,8 @@ def main(args):
         gradient_checkpointing=args.train.gradient_checkpointing,
         per_device_eval_batch_size=args.train.per_device_eval_batch_size,
         max_length=args.train.max_seq_length,
-        assistant_only_loss=True,
+        assistant_only_loss=False,
+        dataset_kwargs={"skip_prepare_dataset": True},
         bf16=args.train.bf16,
         fp16=args.train.fp16,
         use_cpu=args.train.use_cpu,
