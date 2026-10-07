@@ -6,14 +6,14 @@ dataset:
   file: "data/pipeline/hf_dataset/"
   split: "test"
 
-episodes: 20 # Evaluate the complete split.
+episodes: 50 # Evaluate the complete split.
 seed: 1234 # Dataset selection, model generation, and vLLM server seed.
 max_steps: 20
-max_new_tokens: 1024
+max_new_tokens: 2048
 temperature: 0.0
 enable_thinking: false
 reasoning_effort: "none" # none, low, medium, high
-concurrency: 8 # Maximum simultaneous evaluation episodes.
+concurrency: 16 # Maximum simultaneous evaluation episodes.
 batch_invariant: true # Deterministic vLLM outputs across batch schedules.
 
 # Used by the direct Transformers backend.
