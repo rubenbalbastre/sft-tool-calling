@@ -1,11 +1,14 @@
 import unittest
 
+from datasets import Dataset
+
 from src.environment.procurement import SYSTEM_PROMPT
 from src.training.preprocessing import (
     GEMMA_TOOL_CALL_END,
     GEMMA_TOOL_CALL_STARTS,
     enable_assistant_tool_call_mask,
     format_sft_example,
+    prepare_sft_source,
 )
 
 
@@ -78,6 +81,46 @@ class TrainingPreprocessingTest(unittest.TestCase):
         self.assertEqual(tokenizer.messages[0]["role"], "system")
         self.assertEqual(tokenizer.messages[0]["content"], "Custom instructions")
         self.assertEqual(tokenizer.messages[1]["role"], "user")
+
+    def test_prepared_tool_calls_keep_only_their_own_arguments(self):
+        messages = [
+            {"role": "user", "content": "Find an option"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "request_quote",
+                        "arguments": '{"supplier_id": "SUP-001"}',
+                    },
+                }],
+            },
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{
+                    "id": "call_2",
+                    "type": "function",
+                    "function": {
+                        "name": "get_delivery_options",
+                        "arguments": '{"quote_id": "QUOTE-001"}',
+                    },
+                }],
+            },
+        ]
+        dataset = Dataset.from_list([{"messages": messages}])
+
+        prepared = prepare_sft_source(dataset, False, "none")[0]["messages"]
+        calls = [
+            message["tool_calls"][0]["function"]
+            for message in prepared
+            if message["role"] == "assistant"
+        ]
+
+        self.assertEqual(calls[0]["arguments"], {"supplier_id": "SUP-001"})
+        self.assertEqual(calls[1]["arguments"], {"quote_id": "QUOTE-001"})
 
 
 if __name__ == "__main__":

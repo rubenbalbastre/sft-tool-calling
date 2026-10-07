@@ -81,7 +81,7 @@ def prepare_sft_source(dataset, enable_thinking, reasoning_effort):
     """Return structured conversations so TRL can build assistant masks."""
     rows = []
     for example in dataset:
-        messages = deserialize_tool_arguments(example["messages"])
+        messages = [dict(message) for message in example["messages"]]
         if not messages or messages[0]["role"] != "system":
             messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
         rows.append({
@@ -92,7 +92,17 @@ def prepare_sft_source(dataset, enable_thinking, reasoning_effort):
                 "reasoning_effort": reasoning_effort,
             },
         })
-    return Dataset.from_list(rows)
+
+    prepared = Dataset.from_list(rows)
+
+    def deserialize_batch(batch):
+        batch["messages"] = [
+            deserialize_tool_arguments(messages)
+            for messages in batch["messages"]
+        ]
+        return batch
+
+    return prepared.with_transform(deserialize_batch)
 
 
 def prepare_opd_source(dataset):
