@@ -145,14 +145,14 @@ def generate(
     split,
     seed,
     languages=LANGUAGES,
-    templates_per_language=TEMPLATES_PER_LANGUAGE,
+    template_indices=range(1, TEMPLATES_PER_LANGUAGE + 1),
 ):
     """Generate scenarios, then expand them into grouped prompt variants."""
     rows = []
     for scenario in generate_scenarios(count, split, seed):
         reference_messages = build_reference_trajectory(scenario)
         for variant in prompt_variants(
-            scenario, languages, templates_per_language
+            scenario, languages, template_indices
         ):
             messages = deepcopy(reference_messages)
             messages[0]["content"] = variant["user_request"]
@@ -200,7 +200,7 @@ def build_pipeline_dataset(
     split_sizes,
     seed,
     languages=LANGUAGES,
-    templates_per_language=TEMPLATES_PER_LANGUAGE,
+    template_splits=None,
 ):
     """Build split-safe prompt variants for SFT, online training, and evaluation."""
     from datasets import Dataset, DatasetDict, Features, List, Value
@@ -245,17 +245,27 @@ def build_pipeline_dataset(
         "tool_sequence": List(Value("string")),
     })
 
+    template_splits = template_splits or {
+        "train": range(1, 8),
+        "validation": [8],
+        "test": [9, 10],
+    }
     datasets = {}
     for offset, split in enumerate(expected_splits, start=1):
         stage = "sft" if split.startswith("sft_") else (
             "opd" if split.startswith("opd_") else "evaluation"
+        )
+        template_group = (
+            "train" if split.endswith("_train") else
+            "validation" if split.endswith("_validation") else
+            "test"
         )
         rows = generate(
             int(split_sizes[split]),
             split,
             seed + offset,
             languages=languages,
-            templates_per_language=templates_per_language,
+            template_indices=template_splits[template_group],
         )
         datasets[split] = Dataset.from_list(
             [to_pipeline_row(row, stage) for row in rows], features=features

@@ -43,7 +43,7 @@ messages = [dict(message) for message in example["messages"]]
 if not messages or messages[0]["role"] != "system":
     messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 messages = deserialize_tool_arguments(messages)
-template_kwargs = {"enable_thinking": False, "reasoning_effort": "none"}
+template_kwargs = {"enable_thinking": True}
 
 for index, message in enumerate(messages):
     print(

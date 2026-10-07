@@ -68,13 +68,13 @@ def load_eval_defaults():
         "model": config.openai_model,
         "reasoning_effort": config.reasoning_effort,
         "temperature": float(config.temperature),
-        "episodes": int(config.episodes),
+        "episodes": None if config.episodes is None else int(config.episodes),
         "seed": int(config.seed),
         "max_steps": int(config.max_steps),
         "output_root": PROJECT_ROOT / config.output_root,
         "dataset_file": config.dataset.file,
         "dataset_split": config.dataset.split,
-        "prompt_variant": config.dataset.prompt_variant,
+        "prompt_variant": config.dataset.get("prompt_variant"),
     }
 
 
@@ -244,7 +244,7 @@ def main():
         )
         results.append(result)
         print(
-            f"[{index}/{args.episodes}] {result['kind']}: "
+            f"[{index}/{len(rows)}] {result['kind']}: "
             f"{'PASS' if result['success'] else 'FAIL'}"
         )
 

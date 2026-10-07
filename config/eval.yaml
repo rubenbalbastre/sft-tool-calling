@@ -5,16 +5,16 @@ openai_model: "gpt-5.6-luna"
 dataset:
   file: "data/pipeline/hf_dataset/"
   split: "test"
-  prompt_variant: "english_1"
 
-episodes: 50
-seed: 1234
+episodes: null # Evaluate the complete split.
+seed: 1234 # Dataset selection, model generation, and vLLM server seed.
 max_steps: 20
 max_new_tokens: 1024
 temperature: 0.0
 enable_thinking: false
 reasoning_effort: "none" # none, low, medium, high
-concurrency: 8 # Maximum simultaneous vLLM inference requests.
+concurrency: 8 # Maximum simultaneous evaluation episodes.
+batch_invariant: true # Deterministic vLLM outputs across batch schedules.
 
 # Used by the direct Transformers backend.
 device: "auto"

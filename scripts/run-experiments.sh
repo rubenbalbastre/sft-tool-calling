@@ -22,8 +22,8 @@ HF_HUB_CACHE="$HF_HOME/hub"
 
 source .venv/bin/activate
 
-echo "Generating data..."
-"$PYTHON" generate_data.py
+# echo "Generating data..."
+# "$PYTHON" generate_data.py
 
 # echo "Evaluating base model..."
 # "$PYTHON" -m src.evaluation.evaluate_openai \
@@ -32,16 +32,35 @@ echo "Generating data..."
 #   --seed 1234
 
 echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$BASE_MODEL"
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL"
 
-echo "Training SFT model..."
-"$PYTHON" train_sft.py \
-    train.model_name="$BASE_MODEL" \
-    train.run_name="$SFT_RUN" \
-    train.final_model.output_dir=outputs
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL"
 
-echo "Evaluating SFT model..."
-"$PYTHON" -m src.evaluation.evaluate_local model="$SFT_MODEL"
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" enable_thinking=true
+
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" enable_thinking=true
+
+
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" enable_thinking=true
+
+# echo "Training SFT model..."
+# "$PYTHON" train_sft.py \
+#     train.model_name="$BASE_MODEL" \
+#     train.run_name="$SFT_RUN" \
+#     train.final_model.output_dir=outputs
+
+# echo "Evaluating SFT model..."
+# "$PYTHON" -m src.evaluation.evaluate_local \
+#     model="$SFT_MODEL"
 
 # echo "Training OPD model..."
 # "$PYTHON" train_opd.py \
@@ -51,4 +70,5 @@ echo "Evaluating SFT model..."
 #     train.final_model.output_dir=outputs
 
 # echo "Evaluating OPD model..."
-# "$PYTHON" -m src.evaluation.evaluate_local model="$OPD_MODEL"
+# "$PYTHON" -m src.evaluation.evaluate_local \
+#     model="$OPD_MODEL"

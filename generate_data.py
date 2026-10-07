@@ -20,9 +20,10 @@ def main(config: DictConfig) -> None:
         split_sizes,
         int(config.seed),
         languages=list(config.prompt_generation.languages),
-        templates_per_language=int(
-            config.prompt_generation.templates_per_language
-        ),
+        template_splits={
+            name: list(indices)
+            for name, indices in config.prompt_generation.templates.items()
+        },
     )
 
     output_dir = PROJECT_ROOT / config.output_dir

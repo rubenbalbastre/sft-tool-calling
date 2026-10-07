@@ -6,7 +6,7 @@ dataset:
   file: "data/pipeline/hf_dataset/"
   train_split: "sft_train"
   validation_split: "sft_validation"
-  validation_examples: 64
+  validation_examples: 128
 
 train:
   style: "sft"
@@ -37,7 +37,7 @@ train:
   early_stopping:
     enabled: true
     patience: 3 # Number of evaluations without sufficient improvement.
-    threshold: 0.01
+    threshold: 0.005
     metric: "eval_loss"
     greater_is_better: false
   checkpointing:

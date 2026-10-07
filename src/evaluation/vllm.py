@@ -1,6 +1,7 @@
 """Lifecycle management for a local vLLM server."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -52,7 +53,7 @@ class VLLMServer:
     def __init__(
         self, model, config_path, base_url, timeout, log_path,
         served_model_name, tool_call_parser, quantization=None, adapter_path=None,
-        adapter_rank=None,
+        adapter_rank=None, seed=0, batch_invariant=False,
     ):
         self.model = model
         self.config_path = config_path
@@ -64,6 +65,8 @@ class VLLMServer:
         self.quantization = quantization
         self.adapter_path = adapter_path
         self.adapter_rank = adapter_rank
+        self.seed = seed
+        self.batch_invariant = batch_invariant
         self.process = None
         self.log_file = None
 
@@ -95,6 +98,8 @@ class VLLMServer:
             ),
             "--tool-call-parser",
             self.tool_call_parser,
+            "--seed",
+            str(self.seed),
         ]
         if self.tool_call_parser == "gemma4":
             command.extend(["--reasoning-parser", "gemma4"])
@@ -108,10 +113,15 @@ class VLLMServer:
                 str(self.adapter_rank),
             ])
 
+        environment = os.environ.copy()
+        if self.batch_invariant:
+            environment["VLLM_BATCH_INVARIANT"] = "1"
+
         self.process = subprocess.Popen(
             command,
             stdout=self.log_file,
             stderr=subprocess.STDOUT,
+            env=environment,
         )
         try:
             self._wait_until_ready()

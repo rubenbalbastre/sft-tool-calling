@@ -1,10 +1,22 @@
 # Evaluation
 
-Both local and OpenAI evaluation load unique held-out scenarios from the
+Both local and OpenAI evaluation load held-out scenario variants from the
 Hugging Face dataset configured under `dataset` in `config/eval.yaml`. The
-default is the `test` split at `data/pipeline/hf_dataset/`, using the
-`english_1` prompt variant. `episodes` limits the number of unique scenarios;
-`seed` deterministically controls their order and subset.
+default evaluates the complete `test` split at `data/pipeline/hf_dataset/`.
+`episodes` can limit the number of scenario–variant pairs; `seed`
+deterministically controls their order and subset.
+
+The default is equivalent to:
+
+```yaml
+dataset:
+  split: test
+episodes: null
+```
+
+With the default generated dataset, this evaluates 50 scenarios across 8
+held-out multilingual prompt variants, for 400 episodes. This is substantially
+more expensive than evaluating all 50 scenarios with one fixed prompt variant.
 
 Both evaluators run fresh seeded procurement scenarios through the same
 environment. Results are written to numbered directories:
@@ -19,7 +31,8 @@ data/evals/eval-0001/
 
 `results.jsonl` contains prompts, complete episode traces, terminal feasibility
 and utility metrics. `results.json` adds aggregate and per-task-type metrics,
-token totals, and latency.
+average steps, token totals, and mean, median, p95, and aggregate episode
+latency.
 
 ## OpenAI models
 
@@ -75,9 +88,15 @@ python -m src.evaluation.evaluate_local \
 
 [`config/vllm.yaml`](../config/vllm.yaml) enables prefix caching and automatic
 tool choice. With `tool_call_parser=auto`, the launcher selects Gemma 4's native
-parser for Gemma 4 models and Hermes otherwise. Requests from different
-episodes run concurrently up to `concurrency`; turns remain ordered within each
-episode.
+parser for Gemma 4 models and Hermes otherwise. Complete episodes run
+concurrently up to `concurrency`; turns remain ordered within each episode. An
+episode's latency timer starts only after it enters this pool, so waiting behind
+earlier episodes is excluded while its model calls and tool loop are included.
+With `batch_invariant=true`, the launcher sets `VLLM_BATCH_INVARIANT=1` for the
+server. This keeps outputs independent of dynamic batch composition, so
+reproducible evaluations can still use concurrent episodes. The feature may
+reduce throughput and requires support from the installed vLLM version and
+model implementation.
 When the selected local path contains `adapter_config.json`, the evaluator
 serves its recorded base model and mounts the directory as a native vLLM LoRA
 adapter. A merged checkpoint is not required.

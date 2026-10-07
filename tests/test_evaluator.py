@@ -113,7 +113,7 @@ class EvaluatorTest(unittest.TestCase):
         self.assertEqual(defaults["temperature"], config.temperature)
         self.assertEqual(defaults["episodes"], config.episodes)
         self.assertEqual(defaults["dataset_split"], config.dataset.split)
-        self.assertEqual(defaults["prompt_variant"], config.dataset.prompt_variant)
+        self.assertIsNone(defaults["prompt_variant"])
 
     def test_evaluation_rows_come_from_unique_test_scenarios(self):
         sizes = {
@@ -127,7 +127,11 @@ class EvaluatorTest(unittest.TestCase):
             sizes,
             seed=42,
             languages=["English", "Spanish"],
-            templates_per_language=2,
+            template_splits={
+                "train": [3],
+                "validation": [4],
+                "test": [1, 2],
+            },
         )
         with tempfile.TemporaryDirectory() as temporary_directory:
             dataset.save_to_disk(temporary_directory)
@@ -143,6 +147,41 @@ class EvaluatorTest(unittest.TestCase):
         self.assertEqual(len({row["scenario_id"] for row in scenarios}), 3)
         self.assertTrue(all(row["language"] == "English" for row in scenarios))
         self.assertTrue(all(row["prompt_variant"] == "english_1" for row in scenarios))
+
+    def test_evaluation_can_load_every_prompt_variant(self):
+        sizes = {
+            "sft_train": 1,
+            "sft_validation": 1,
+            "opd_train": 1,
+            "opd_validation": 1,
+            "test": 3,
+        }
+        dataset = build_pipeline_dataset(
+            sizes,
+            seed=42,
+            languages=["English", "Spanish"],
+            template_splits={
+                "train": [3],
+                "validation": [4],
+                "test": [1, 2],
+            },
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            dataset.save_to_disk(temporary_directory)
+            rows = load_evaluation_rows(
+                temporary_directory,
+                "test",
+                prompt_variant=None,
+                episodes=None,
+                seed=1234,
+            )
+
+        scenarios = [row["scenario"] for row in rows]
+        self.assertEqual(len(scenarios), 12)
+        self.assertEqual(
+            len({(row["scenario_id"], row["prompt_variant"]) for row in scenarios}),
+            12,
+        )
 
     def test_openai_tool_schemas_are_strict(self):
         for tool in TOOLS:
@@ -178,6 +217,35 @@ class EvaluatorTest(unittest.TestCase):
             root = Path(temporary_directory)
             self.assertEqual(create_run_directory(root).name, "eval-0001")
             self.assertEqual(create_run_directory(root).name, "eval-0002")
+
+    def test_summary_reports_episode_latency_and_steps(self):
+        results = [
+            {
+                "kind": "open_search",
+                "success": success,
+                "episode_return": float(success),
+                "steps": steps,
+                "latency_seconds": latency,
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
+            }
+            for success, steps, latency in (
+                (True, 2, 1.0),
+                (False, 4, 2.0),
+                (True, 6, 10.0),
+            )
+        ]
+
+        summary = summarize(results)
+
+        self.assertEqual(summary["overall"]["average_steps"], 4.0)
+        self.assertEqual(summary["mean_episode_latency_seconds"], 13 / 3)
+        self.assertEqual(summary["median_episode_latency_seconds"], 2.0)
+        self.assertEqual(summary["p95_episode_latency_seconds"], 10.0)
+        self.assertEqual(summary["aggregate_episode_latency_seconds"], 13.0)
 
     def test_direct_supplier_online_rollout(self):
         scenario = generate_scenarios(1, "test", 77)[0]

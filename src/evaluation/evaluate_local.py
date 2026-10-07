@@ -111,12 +111,13 @@ def continue_conversation(messages, assistant_message, call, observation):
 class TransformersBackend:
     def __init__(
         self, model_path, max_new_tokens, device,
-        enable_thinking, reasoning_effort, temperature,
+        enable_thinking, reasoning_effort, temperature, seed,
     ):
         import torch
         from peft import AutoPeftModelForCausalLM
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 
+        set_seed(seed)
         self.torch = torch
         self.max_new_tokens = max_new_tokens
         self.enable_thinking = enable_thinking
@@ -220,7 +221,7 @@ class TransformersBackend:
 class VLLMBackend:
     def __init__(
         self, model, base_url, api_key, max_new_tokens,
-        enable_thinking, reasoning_effort, temperature,
+        enable_thinking, reasoning_effort, temperature, seed,
     ):
         from openai import AsyncOpenAI
 
@@ -229,6 +230,7 @@ class VLLMBackend:
         self.enable_thinking = enable_thinking
         self.reasoning_effort = reasoning_effort
         self.temperature = temperature
+        self.seed = seed
         self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
 
     async def generate(self, messages):
@@ -239,6 +241,7 @@ class VLLMBackend:
             tool_choice="auto",
             parallel_tool_calls=False,
             temperature=self.temperature,
+            seed=self.seed,
             max_tokens=self.max_new_tokens,
             extra_body={
                 "chat_template_kwargs": {
@@ -258,9 +261,7 @@ class VLLMBackend:
         return assistant_message, calls, usage
 
 
-async def run_episode(
-    backend, row, prompt, max_steps, inference_semaphore=None
-):
+async def run_episode(backend, row, prompt, max_steps):
     """Run one ordered episode while allowing other episodes to make progress."""
     scenario = row["scenario"]
     user_request = scenario["user_request"]
@@ -278,13 +279,7 @@ async def run_episode(
         output_error = None
         assistant_message = None
         try:
-            if inference_semaphore:
-                async with inference_semaphore:
-                    assistant_message, calls, step_usage = await backend.generate(
-                        messages
-                    )
-            else:
-                assistant_message, calls, step_usage = await backend.generate(messages)
+            assistant_message, calls, step_usage = await backend.generate(messages)
             for key in usage:
                 usage[key] += step_usage[key]
             if len(calls) != 1:
@@ -344,10 +339,15 @@ async def run_episode(
 
 
 async def run_concurrent_episodes(backend, rows, prompt, max_steps, concurrency):
-    """Keep up to `concurrency` model inference requests active at once."""
+    """Run up to `concurrency` complete episodes at once."""
     semaphore = asyncio.Semaphore(concurrency)
+
+    async def run_when_admitted(row):
+        async with semaphore:
+            return await run_episode(backend, row, prompt, max_steps)
+
     return await asyncio.gather(*(
-        run_episode(backend, row, prompt, max_steps, semaphore)
+        run_when_admitted(row)
         for row in rows
     ))
 
@@ -480,6 +480,7 @@ def main(args):
             args.enable_thinking,
             args.reasoning_effort,
             args.temperature,
+            args.seed,
         )
     else:
         base_model, adapter_path, adapter_rank = resolve_model_and_adapter(model)
@@ -494,6 +495,8 @@ def main(args):
             quantization=args.quantization,
             adapter_path=adapter_path,
             adapter_rank=adapter_rank,
+            seed=args.seed,
+            batch_invariant=args.batch_invariant,
         )
         server.start()
         try:
@@ -505,6 +508,7 @@ def main(args):
                 args.enable_thinking,
                 args.reasoning_effort,
                 args.temperature,
+                args.seed,
             )
         except Exception:
             server.stop()
@@ -513,7 +517,7 @@ def main(args):
     rows = load_evaluation_rows(
         PROJECT_ROOT / args.dataset.file,
         args.dataset.split,
-        args.dataset.prompt_variant,
+        args.dataset.get("prompt_variant"),
         args.episodes,
         args.seed,
     )
@@ -531,7 +535,7 @@ def main(args):
 
         for index, result in enumerate(results, 1):
             print(
-                f"[{index}/{args.episodes}] {result['kind']}: "
+                f"[{index}/{len(rows)}] {result['kind']}: "
                 f"{'PASS' if result['success'] else 'FAIL'}"
             )
 
