@@ -88,7 +88,7 @@ def main(args):
         gradient_checkpointing=args.train.gradient_checkpointing,
         per_device_eval_batch_size=args.train.per_device_eval_batch_size,
         max_length=args.train.max_seq_length,
-        assistant_only_loss=True,
+        assistant_only_loss=False,
         dataset_kwargs={"skip_prepare_dataset": True},
         bf16=args.train.bf16,
         fp16=args.train.fp16,

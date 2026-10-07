@@ -45,9 +45,12 @@ thinking is disabled by default.
 
 ## Loss, masks, and sequence handling
 
-Training uses `assistant_only_loss=True`. System, user, and tool-response tokens
-remain visible through the attention mask but receive label `-100`; only the
-assistant's tool calls contribute to loss.
+The preprocessor implements assistant-only loss directly in the materialized
+`labels`: system, user, and tool-response tokens remain visible through the
+attention mask but receive label `-100`; only the assistant's tool calls
+contribute to loss. `SFTConfig.assistant_only_loss` stays disabled because TRL
+correctly sees this pretokenized dataset as non-conversational; enabling that
+option would reject the already prepared `input_ids` and `labels`.
 
 Gemma 4's inference template does not contain TRL generation markers, so the
 preprocessor adds them around assistant tool calls. The full call—including the
