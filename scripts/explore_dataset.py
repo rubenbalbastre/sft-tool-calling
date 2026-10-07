@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.training.preprocessing import prepare_sft_source, format_sft_example
+from src.training.preprocessing import prepare_sft_source
 
 
 dataset = load_from_disk(PROJECT_ROOT / "data/pipeline/hf_dataset")["sft_train"]
