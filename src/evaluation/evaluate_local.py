@@ -496,6 +496,7 @@ def main(args):
             adapter_path=adapter_path,
             adapter_rank=adapter_rank,
             seed=args.seed,
+            batch_invariant=args.batch_invariant,
         )
         server.start()
         try:
