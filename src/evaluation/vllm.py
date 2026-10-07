@@ -52,7 +52,7 @@ class VLLMServer:
     def __init__(
         self, model, config_path, base_url, timeout, log_path,
         served_model_name, tool_call_parser, quantization=None, adapter_path=None,
-        adapter_rank=None,
+        adapter_rank=None, seed=0,
     ):
         self.model = model
         self.config_path = config_path
@@ -64,6 +64,7 @@ class VLLMServer:
         self.quantization = quantization
         self.adapter_path = adapter_path
         self.adapter_rank = adapter_rank
+        self.seed = seed
         self.process = None
         self.log_file = None
 
@@ -95,6 +96,8 @@ class VLLMServer:
             ),
             "--tool-call-parser",
             self.tool_call_parser,
+            "--seed",
+            str(self.seed),
         ]
         if self.tool_call_parser == "gemma4":
             command.extend(["--reasoning-parser", "gemma4"])
