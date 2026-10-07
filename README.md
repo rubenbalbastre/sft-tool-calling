@@ -133,7 +133,8 @@ python -m src.evaluation.evaluate_local backend=vllm episodes=100
 
 - [Environment and verifiable trajectories](docs/environment.md)
 - [Dataset generation and Hugging Face publishing](docs/data-generation.md)
-- [SFT and on-policy training](docs/training.md)
+- [Supervised fine-tuning](docs/sft_training.md)
+- [On-policy distillation](docs/opd_training.md)
 - [Local and OpenAI evaluation](docs/evaluation.md)
 - [RunPod experiment environment](docs/runpod.md)
 
