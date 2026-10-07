@@ -36,11 +36,11 @@ class DataGenerationTest(unittest.TestCase):
         self.assertEqual(
             {name: len(split) for name, split in dataset.items()},
             {
-                "sft_train": 5 * 14,
-                "sft_validation": 1 * 2,
-                "opd_train": 5 * 14,
-                "opd_validation": 1 * 2,
-                "test": 1 * 4,
+                "sft_train": 5 * 20,
+                "sft_validation": 1 * 10,
+                "opd_train": 5 * 20,
+                "opd_validation": 1 * 10,
+                "test": 1 * 20,
             },
         )
         self.assertGreater(len(dataset["sft_train"][0]["messages"]), 1)
@@ -69,9 +69,9 @@ class DataGenerationTest(unittest.TestCase):
         for name, split in dataset.items():
             self.assertEqual(set(split["language"]), {"English", "Spanish"})
             variants_per_scenario = (
-                14 if name.endswith("_train") else
-                2 if name.endswith("_validation") else
-                4
+                20 if name.endswith("_train") else
+                10 if name.endswith("_validation") else
+                20
             )
             scenario_counts = {
                 scenario_id: split["scenario_id"].count(scenario_id)
@@ -84,15 +84,23 @@ class DataGenerationTest(unittest.TestCase):
 
         self.assertEqual(
             {variant.rsplit("_", 1)[1] for variant in dataset["sft_train"]["prompt_variant"]},
-            {str(index) for index in range(1, 8)},
+            {str(index) for index in range(1, 11)},
+        )
+        self.assertEqual(
+            {variant.rsplit("_", 1)[1] for variant in dataset["opd_train"]["prompt_variant"]},
+            {str(index) for index in range(1, 11)},
         )
         self.assertEqual(
             {variant.rsplit("_", 1)[1] for variant in dataset["sft_validation"]["prompt_variant"]},
-            {"8"},
+            {str(index) for index in range(11, 16)},
+        )
+        self.assertEqual(
+            {variant.rsplit("_", 1)[1] for variant in dataset["opd_validation"]["prompt_variant"]},
+            {str(index) for index in range(11, 16)},
         )
         self.assertEqual(
             {variant.rsplit("_", 1)[1] for variant in dataset["test"]["prompt_variant"]},
-            {"9", "10"},
+            {str(index) for index in range(16, 26)},
         )
 
         split_ids = [set(split["scenario_id"]) for split in dataset.values()]

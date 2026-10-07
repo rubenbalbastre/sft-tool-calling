@@ -50,8 +50,8 @@ Results use 50 episodes from the held-out `test` split, with 10 episodes from
 each task type, using the executable environment evaluator.
 
 These preliminary runs predate the template-level holdout. The next experiment
-will train on templates 1–7, validate on template 8, and report final results on
-unseen templates 9–10. Their latency values are per-episode averages derived
+will train on templates 1–10, validate on templates 11–15, and report final
+results on unseen templates 16–25. Their latency values are per-episode averages derived
 from the earlier queue-inclusive scheduler; new runs start timing only after an
 episode enters the concurrency pool.
 
@@ -153,7 +153,7 @@ dependencies first.
 
 | Entry point | Configuration | Purpose |
 | --- | --- | --- |
-| `generate_data.py` | `config/data_generation.yaml` | Create the procurement SFT/OPD pilot dataset |
+| `generate_data.py` | `config/data_generation.yaml` | Create the procurement SFT, OPD, and test dataset |
 | `train_sft.py` | `config/train_sft.yaml` | Supervised fine-tuning |
 | `train_opd.py` | `config/train_opd.yaml` | On-policy distillation |
 | `python -m src.evaluation.evaluate_local` | `config/eval.yaml` | Evaluate with Transformers or an automatically managed vLLM server |
@@ -162,7 +162,7 @@ dependencies first.
 Hydra entry points accept command-line overrides, for example:
 
 ```bash
-python generate_data.py splits.sft_train=40 splits.opd_train=20
+python generate_data.py splits.sft_train=40 splits.opd_train=40
 python -m src.evaluation.evaluate_local backend=vllm episodes=100
 ```
 

@@ -12,8 +12,8 @@ python generate_data.py
 ## Splits
 
 - `sft_train` and `sft_validation`: complete supervised trajectories.
-- `opd_train` and `opd_validation`: initial user message plus hidden scenario
-  state for online rollouts.
+- `opd_train` and `opd_validation`: prompt-only rows generated from different
+  seeded scenarios than SFT.
 - `test`: held-out prompt-only scenarios.
 
 All splits have the same columns:
@@ -34,13 +34,13 @@ scenario is assigned to one split before prompt expansion, preventing semantic
 scenario leakage. Prompt templates are also held out by stage in every
 language:
 
-- training (`sft_train`, `opd_train`): templates 1–7;
-- validation (`sft_validation`, `opd_validation`): template 8;
-- test: templates 9–10.
+- training (`sft_train`, `opd_train`): templates 1–10;
+- validation (`sft_validation`, `opd_validation`): templates 11–15;
+- test: templates 16–25.
 
 The values under `splits` are semantic scenario counts, not final row counts.
-With four languages, each training scenario produces 28 rows, each validation
-scenario produces 4, and each test scenario produces 8. Complete SFT
+With four languages, each training scenario produces 40 rows, each validation
+scenario produces 20, and each test scenario produces 40. Complete SFT
 conversations are produced by running a reference policy once through the same
 environment used for evaluation and reusing that verified action trace across
 its prompt variants. Tool arguments are JSON strings under
@@ -57,7 +57,7 @@ satisfy the requirement.
 python generate_data.py \
   splits.sft_train=40 \
   splits.sft_validation=5 \
-  splits.opd_train=20 \
+  splits.opd_train=40 \
   splits.opd_validation=5 \
   splits.test=10 \
   output_dir=data/pilot/hf_dataset
@@ -69,8 +69,8 @@ Override the template allocation with:
 python generate_data.py \
   prompt_generation.languages='[English,Spanish]' \
   prompt_generation.templates.train='[1,2,3]' \
-  prompt_generation.templates.validation='[4]' \
-  prompt_generation.templates.test='[5]'
+  prompt_generation.templates.validation='[11]' \
+  prompt_generation.templates.test='[16,17]'
 ```
 
 ## Load locally

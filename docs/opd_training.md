@@ -28,10 +28,11 @@ python train_opd.py \
 
 ## Input preparation
 
-OPD reads `opd_train` and `opd_validation`. These splits contain prompts rather
-than gold assistant trajectories. `prepare_opd_source()` selects the `messages`
-column and renames it to `prompt`, which is the field expected by
-`DistillationTrainer` for online generation.
+OPD reads `opd_train` and `opd_validation`. They use different seeded scenarios
+from SFT while sharing its template ranges: 1–10 for training and 11–15 for
+validation. These splits contain only the initial user message.
+`prepare_opd_source()` exposes that message under `prompt`, which is the field
+expected by `DistillationTrainer` for online generation.
 
 The generation template receives:
 
