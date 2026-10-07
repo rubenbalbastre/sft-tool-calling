@@ -22,8 +22,8 @@ HF_HUB_CACHE="$HF_HOME/hub"
 
 source .venv/bin/activate
 
-echo "Generating data..."
-"$PYTHON" generate_data.py
+# echo "Generating data..."
+# "$PYTHON" generate_data.py
 
 # echo "Evaluating base model..."
 # "$PYTHON" -m src.evaluation.evaluate_openai \
@@ -37,15 +37,20 @@ echo "Evaluating base model..."
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true reasoning_effort=low
+    model="$BASE_MODEL"
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true reasoning_effort=medium
+    model="$BASE_MODEL" enable_thinking=true
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true reasoning_effort=high
+    model="$BASE_MODEL" enable_thinking=true
+
+
+echo "Evaluating base model..."
+"$PYTHON" -m src.evaluation.evaluate_local \
+    model="$BASE_MODEL" enable_thinking=true
 
 # echo "Training SFT model..."
 # "$PYTHON" train_sft.py \
