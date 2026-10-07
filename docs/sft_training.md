@@ -25,9 +25,10 @@ SFT reads `sft_train` and `sft_validation` from the Hugging Face `DatasetDict`.
 The configured procurement system prompt is prepended in memory, so the stored
 dataset remains independent of a particular training prompt.
 
-`SFTTrainer` applies the selected model's chat template to structured messages.
-Tool arguments remain JSON strings in Arrow storage and are converted lazily to
-Python mappings when a row is read. This is required by templates such as
+Before constructing `SFTTrainer`, the preprocessor applies the selected model's
+chat template and materializes `input_ids` and assistant-only `labels`. Tool
+arguments remain JSON strings in Arrow storage and are converted to Python
+mappings immediately before tokenization. This is required by templates such as
 Gemma's and prevents Arrow from merging arguments from different tools into a
 single struct containing unrelated null fields.
 
@@ -53,6 +54,10 @@ preprocessor adds them around assistant tool calls. The full call—including th
 tool-call closing token—is supervised, while the environment response is not.
 This can produce TRL's generic warning about an end-of-turn token outside the
 loss mask.
+
+The resulting tokenized dataset is passed with `skip_prepare_dataset=True`.
+This avoids storing Python mappings through Arrow and avoids the unsupported
+combination of `SFTTrainer` with `Dataset.with_transform()`.
 
 The maximum sequence length is 8,192 tokens. Packing and padding-free training
 are disabled because they require a compatible Flash Attention implementation
@@ -154,4 +159,3 @@ Publish a final adapter and add it to the project collection with:
 ```bash
 python scripts/publish-model.py outputs/<run-name>/final_model
 ```
-
