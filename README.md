@@ -46,47 +46,48 @@ Published checkpoints are listed in the
 
 ## Results
 
-Results use 50 episodes from the held-out `test` split, with 10 episodes from
-each task type, using the executable environment evaluator.
+Results use the same seeded sample of 50 scenario–prompt pairs from the
+held-out `test` split and the executable environment evaluator. Repeated runs
+are averaged; the range beside success shows observed run-to-run variation.
 
 These preliminary runs predate the template-level holdout. The next experiment
 will train on templates 1–10, validate on templates 11–15, and report final
-results on unseen templates 16–25. Their latency values are per-episode averages derived
-from the earlier queue-inclusive scheduler; new runs start timing only after an
-episode enters the concurrency pool.
+results on unseen templates 16–25.
 
 | Model | Reasoning | Training tokens | Task success | Average return | Mean episode latency |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Base | None | — | 34% | 0.325 | 16.8 s |
-| Base | Low | — | — | — | — |
-| Base | Medium | — | — | — | — |
-| Base | High | — | — | — | — |
-| LoRA SFT | None | 710,641 | 40% | 0.452 | 26.5 s |
+| Base | Disabled | — | 20% (18–22%) | 0.262 | 15.1 s |
+| Base | Enabled | — | 36% (34–38%) | 0.474 | 100.6 s |
+| LoRA SFT (48 steps) | Disabled | — | 33% (30–36%) | 0.542 | 21.6 s |
 
-Training tokens seen is taken from the trainer state at the final and best SFT
-checkpoint (step 24). It counts non-padding input tokens processed by the model,
-including context tokens whose labels are masked from the supervised loss.
+The 48-step checkpoint's Trainer state reports no input-token count, so that
+value is not included.
 
 Task-level cells report `success rate / average return`.
 
 | Model | Reasoning | Compliance first | Direct supplier | No feasible option | Open search | Preferred with fallback |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Base | None | 40% / 0.352 | 60% / 0.524 | 0% / -0.050 | 70% / 0.799 | 0% / 0.000 |
-| LoRA SFT | None | 50% / 0.630 | 60% / 0.524 | 20% / 0.180 | 70% / 0.697 | 0% / 0.226 |
+| Base | Disabled | 46.2% / 0.549 | 37.5% / 0.283 | 0% / -0.028 | 12.5% / 0.492 | 0% / 0.000 |
+| Base | Enabled | 38.5% / 0.716 | 81.3% / 0.663 | 5.6% / 0.056 | 18.8% / 0.303 | 37.5% / 0.512 |
+| LoRA SFT (48 steps) | Disabled | 34.6% / 0.890 | 68.8% / 0.550 | 50.0% / 0.500 | 25.0% / 0.506 | 0% / 0.214 |
 
-The SFT checkpoint improves overall success by 6 percentage points and average
-return by 0.127. Its positive return on preferred-supplier fallback tasks,
-despite no complete successes, reflects intermediate rewards for useful actions.
+The 48-step SFT checkpoint improves non-thinking average success by 13
+percentage points and average return by 0.280. It nearly matches the
+thinking-enabled base model's success and exceeds its average return, while its
+mean episode latency is less than one quarter as large. Its positive return on
+preferred-supplier fallback tasks, despite no complete successes, reflects
+intermediate rewards for useful actions.
 
 | Model | Reasoning | Input tokens | Output tokens | Total tokens |
 | --- | --- | ---: | ---: | ---: |
-| Base | None | 487,802 | 13,934 | 501,736 |
-| LoRA SFT | None | 753,206 | 17,410 | 770,616 |
+| Base | Disabled | 807,913 | 19,439 | 827,351 |
+| Base | Enabled | 1,117,125 | 132,650 | 1,249,774 |
+| LoRA SFT (48 steps) | Disabled | 1,044,139 | 22,521 | 1,066,660 |
 
-The SFT model generated longer multi-turn trajectories (7.86 versus 6.86 steps
-per episode). Because every step resends the growing conversation and tool
-history, these additional steps increase both cumulative input tokens and total
-evaluation latency.
+Thinking increases output tokens substantially and raises mean latency by more
+than six times over the non-thinking base. The 48-step SFT model averages 10.07
+steps per episode, so its stronger behavior also carries more tool context and
+slightly higher latency than the non-thinking base.
 
 ## Environment description
 
