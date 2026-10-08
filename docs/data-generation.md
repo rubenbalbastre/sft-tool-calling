@@ -86,6 +86,25 @@ Set `HF_TOKEN` in the shell or the repository's ignored `.env`, then run:
 python generate_data.py hub.push=true
 ```
 
+To publish a dataset that is already saved locally without regenerating it,
+use:
+
+```bash
+python scripts/publish-dataset.py
+```
+
+The default source is `data/pipeline/hf_dataset`. Pass another saved dataset
+directory as the first argument when needed:
+
+```bash
+python scripts/publish-dataset.py \
+  runpod-artifacts/data/pipeline/hf_dataset
+```
+
+The script also publishes `src/data_generation/README.md` as the Hugging Face
+dataset card. It uploads only the current `sft_train`, `sft_validation`, and
+`test` splits, ignoring unrelated legacy splits in older saved artifacts.
+
 By default, this updates
 [`rubenbalbastre/supply-chain-tool-calling`](https://huggingface.co/datasets/rubenbalbastre/supply-chain-tool-calling)
 under the `default` configuration. Override `hub.repo_id` and
