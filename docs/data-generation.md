@@ -9,6 +9,122 @@ default.
 python generate_data.py
 ```
 
+## End-to-end process
+
+Dataset creation is programmatic, but it does not write an assumed sequence of
+tool calls directly. It constructs a hidden scenario, executes a reference
+policy against the environment, and retains the conversation only after the
+same verifier used during evaluation accepts the terminal action.
+
+```text
+SQLite master data
+  → seeded semantic scenario
+  → route-validity checks
+  → verified reference rollout
+  → multilingual prompt expansion
+  → normalized Hugging Face rows
+  → DatasetDict saved to disk
+```
+
+### 1. Build the deterministic market
+
+The environment creates `data/environment/procurement.db` on first use. It
+contains fixed materials, suppliers, countries, certifications, reliability,
+material coverage, base prices, capacities, and preparation times. A scenario
+seed deterministically derives the episode-specific quote and delivery values:
+price, availability, ready date, transport cost, arrival date, delivery
+reliability, and carbon emissions.
+
+The market derivation is keyed by scenario, supplier, quote, and transport
+mode. It is therefore independent of tool-call order: asking for supplier A
+before supplier B does not change either supplier's result.
+
+### 2. Generate semantic scenarios
+
+Each split is generated with a distinct seed derived from the configured base
+seed: `seed + 1` for `sft_train`, `seed + 2` for `sft_validation`, and
+`seed + 3` for `test`. A scenario samples:
+
+- one of three materials and its required unit;
+- quantity, destination, order date, and deadline;
+- allowed countries, budget, and minimum delivery reliability;
+- route-specific supplier, certification, or fallback requirements;
+- preference weights and the acceptable utility tolerance.
+
+Task types cycle evenly by scenario index. Generation retries a candidate, up
+to 200 attempts, until the intended route is meaningful:
+
+| Task type | Construction condition |
+| --- | --- |
+| `direct_supplier` | Names a supplier that has a feasible option and exposes only that supplier initially. |
+| `open_search` | Requires at least two feasible suppliers so comparison is necessary. |
+| `compliance_first` | Adds `ISO-14001` as a hard requirement and keeps only scenarios with a compliant feasible option. |
+| `preferred_with_fallback` | Names an infeasible preferred supplier while ensuring that a feasible fallback exists. |
+| `no_feasible_option` | Lowers the budget to EUR 100 and verifies that the oracle finds no feasible option. |
+
+See [the environment documentation](environment.md#hard-constraints-and-evidence)
+for the complete constraint and evidence rules.
+
+### 3. Execute and verify the reference trajectory
+
+`build_reference_trajectory` interacts with `ProcurementEnvironment` through
+the same tools available to evaluated models:
+
+1. Follow the route: use the named supplier, search the market, or try the
+   preferred supplier first.
+2. For compliance-first tasks, inspect supplier profiles and retain only
+   suppliers with all required certifications.
+3. Request a quote and delivery options for every relevant supplier.
+4. Assemble feasible options exclusively from observed tool results.
+5. Submit the observed option with the highest utility, or report no feasible
+   option when none exists.
+6. Keep the trajectory only if the terminal environment result reports
+   `success=true`; otherwise generation raises an error.
+
+Every action is stored as an assistant tool call followed by the corresponding
+tool observation. IDs returned by one call are carried into later calls, so the
+result is a genuine multi-turn trajectory rather than isolated function-call
+examples. The reference sequence is useful supervision, but evaluation remains
+outcome-based and may accept other valid research routes.
+
+### 4. Expand wording without leaking scenarios
+
+Only after a semantic scenario and its reference trajectory have been created
+does generation render prompt variants. The first user message is replaced by
+each selected language/template combination while the verified tool trace and
+hidden market state remain unchanged.
+
+Scenario assignment happens before this expansion. Consequently, every prompt
+variant sharing a `scenario_id` remains in one split. Template indices are also
+disjoint by stage:
+
+- training: templates 1–10;
+- validation: templates 11–15;
+- test: templates 16–25.
+
+All three stages keep English, Spanish, German, and French. The default row
+counts are therefore:
+
+| Split | Semantic scenarios | Variants per scenario | Rows | Stored messages |
+| --- | ---: | ---: | ---: | --- |
+| `sft_train` | 100 | 4 languages × 10 templates | 4,000 | Complete verified trajectory |
+| `sft_validation` | 10 | 4 languages × 5 templates | 200 | Complete verified trajectory |
+| `test` | 10 | 4 languages × 10 templates | 400 | User prompt only |
+
+### 5. Normalize and save the DatasetDict
+
+All messages are normalized to one Arrow schema with `role`, `content`,
+`tool_calls`, `name`, and `tool_call_id`. Assistant function arguments are
+stored as JSON strings for portable dataset serialization; training
+preprocessing deserializes them before applying model chat templates that
+require argument mappings.
+
+SFT splits retain the full verified conversation. The test split deliberately
+retains only the initial user message so evaluation must discover the market
+through fresh tool calls. `scenario_json` is saved alongside each row solely so
+the environment and verifier can reconstruct hidden state; it must never be
+included in the model prompt.
+
 ## Splits
 
 - `sft_train` and `sft_validation`: complete supervised trajectories.
@@ -26,28 +142,7 @@ All splits have the same columns:
 Only `messages` is model input. Never include `scenario_json` or
 `tool_sequence` in the model prompt.
 
-Generation is seeded and cycles through direct-supplier, open-search,
-compliance, preferred-with-fallback, and no-feasible-option tasks. Each semantic
-scenario is assigned to one split before prompt expansion, preventing semantic
-scenario leakage. Prompt templates are also held out by stage in every
-language:
-
-- training: templates 1–10;
-- validation: templates 11–15;
-- test: templates 16–25.
-
 The values under `splits` are semantic scenario counts, not final row counts.
-With four languages, each training scenario produces 40 rows, each validation
-scenario produces 20, and each test scenario produces 40. Complete SFT
-conversations are produced by running a reference policy once through the same
-environment used for evaluation and reusing that verified action trace across
-its prompt variants. Tool arguments are JSON strings under
-`assistant.tool_calls[].function.arguments`.
-
-Reference routes follow the user instruction: preferred suppliers are quoted
-before searching for fallbacks, and compliance-first trajectories inspect all
-profiles but request quotes only from suppliers whose observed certifications
-satisfy the requirement.
 
 ## Hydra overrides
 
