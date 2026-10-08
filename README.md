@@ -48,11 +48,11 @@ split, including **unseen templates 16–25**. All runs use the same seed and te
 variation comes from repeated inference. Values are the mean ± sample standard
 deviation across runs.
 
-| Model | Thinking | Runs  | Task success | Average return | Mean episode latency |
+| Model | Thinking | Runs | Task success | Average return | Mean episode latency |
 | --- | --- | ---: | ---: | ---: | ---: |
 | Base | Disabled | 3 | 16.58% ± 0.29 pp | 0.230 ± 0.010 | 15.75 ± 0.14 s |
-| Base | Enabled | 3 |  40.33% ± 1.66 pp | 0.476 ± 0.017 | 95.36 ± 2.04 s |
-| SFT| Disabled | 3 | **42.50% ± 0.35 pp** | **0.567 ± 0.005** | **20.31 ± 0.19 s** |
+| Base | Enabled | 3 | 40.33% ± 1.66 pp | 0.476 ± 0.017 | 95.36 ± 2.04 s |
+| SFT | Disabled | 3 | **42.50% ± 0.35 pp** | **0.567 ± 0.005** | **20.31 ± 0.19 s** |
 
 Training processed **1,472,140 non-padding input tokens** across **384
 examples**. Of these, **188,297 assistant tool-call tokens** carried loss; context and tool-result

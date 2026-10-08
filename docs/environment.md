@@ -25,10 +25,11 @@ Seeded scenarios cycle through several task types:
 - `preferred_with_fallback`: try the named supplier before searching;
 - `no_feasible_option`: research candidates and prove none satisfies the task.
 
-The executable scenario is separate from its wording. Dataset generation
-renders each scenario with ten templates in English, Spanish, German, and
-French, while evaluation can continue to select a single deterministic prompt.
-Prompt variants never change the seeded market state or verifier.
+The executable scenario is separate from its wording. In each language,
+dataset generation uses ten training templates, five validation templates, and
+ten test templates. Evaluation can use every held-out variant or select one
+specific variant. Prompt wording never changes the seeded market state or
+verifier.
 
 The verifier does not store an expected tool list. It checks whether submitted
 IDs were observed, all hard constraints hold, required evidence was collected,
