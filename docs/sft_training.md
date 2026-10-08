@@ -130,7 +130,7 @@ SFT enables Transformers' `EarlyStoppingCallback` by default:
 early_stopping:
   enabled: true
   patience: 3
-  threshold: 0.01
+  threshold: 0.0005
   metric: eval_loss
   greater_is_better: false
 ```
@@ -138,6 +138,14 @@ early_stopping:
 Patience counts evaluation calls. Checkpoint saving and evaluation are both
 configured every four steps so the best checkpoint can be restored before the
 final adapter is saved.
+
+This experiment was deliberately compute-bounded. The **48-step maximum** was
+chosen as a resource budget, while early stopping prevents spending that budget
+after validation loss stops improving meaningfully. It was not selected by
+searching for the checkpoint with the highest environment return or task
+success. The reported model should therefore be interpreted as the result of a
+small, controlled SFT run—not as the maximum performance obtainable from the
+dataset or base model.
 
 ## Resume from a checkpoint
 

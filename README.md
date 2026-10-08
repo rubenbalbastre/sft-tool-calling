@@ -1,10 +1,5 @@
 # Multilingual procurement tool calling
 
-> [!NOTE]
-> **Work in progress.** The executable environment, multilingual dataset
-> pipeline, SFT workflow, and model evaluation are functional. Larger-scale
-> experiments are still under active development.
-
 Published models and experiment artifacts are collected on
 [Hugging Face](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
 
@@ -46,52 +41,52 @@ trajectories.
 | --- | --- | --- | --- |
 | [`gemma-4-E2B-it-sft`](https://huggingface.co/rubenbalbastre/procurement-function-calling-gemma-4-E2B-it-sft) | `google/gemma-4-E2B-it` | LoRA SFT | Experimental |
 
-Published checkpoints are listed in the
-[project's Hugging Face collection](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
-
 ## Results
 
-Results use 50 episodes from the held-out `test` split, with 10 episodes from
-each task type, using the executable environment evaluator.
+Every run evaluates **all 400 scenario–prompt pairs** in the held-out `test`
+split, including **unseen templates 16–25**. All runs use the same seed and test examples;
+variation comes from repeated inference. Values are the mean ± sample standard
+deviation across runs.
 
-These preliminary runs predate the template-level holdout. The next experiment
-will train on templates 1–10, validate on templates 11–15, and report final
-results on unseen templates 16–25. Their latency values are per-episode averages derived
-from the earlier queue-inclusive scheduler; new runs start timing only after an
-episode enters the concurrency pool.
-
-| Model | Reasoning | Training tokens | Task success | Average return | Mean episode latency |
+| Model | Thinking | Runs  | Task success | Average return | Mean episode latency |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Base | None | — | 34% | 0.325 | 16.8 s |
-| Base | Low | — | — | — | — |
-| Base | Medium | — | — | — | — |
-| Base | High | — | — | — | — |
-| LoRA SFT | None | 710,641 | 40% | 0.452 | 26.5 s |
+| Base | Disabled | 3 | 16.58% ± 0.29 pp | 0.230 ± 0.010 | 15.75 ± 0.14 s |
+| Base | Enabled | 3 |  40.33% ± 1.66 pp | 0.476 ± 0.017 | 95.36 ± 2.04 s |
+| SFT| Disabled | 3 | **42.50% ± 0.35 pp** | **0.567 ± 0.005** | **20.31 ± 0.19 s** |
 
-Training tokens seen is taken from the trainer state at the final and best SFT
-checkpoint (step 24). It counts non-padding input tokens processed by the model,
-including context tokens whose labels are masked from the supervised loss.
+Training processed **1,472,140 non-padding input tokens** across **384
+examples**. Of these, **188,297 assistant tool-call tokens** carried loss; context and tool-result
+tokens were masked from the loss. The 48-step SFT job took **65 minutes on one
+NVIDIA A40 GPU**.
 
-Task-level cells report `success rate / average return`.
+Task-level cells report `mean success ± SD / mean return ± SD`.
 
-| Model | Reasoning | Compliance first | Direct supplier | No feasible option | Open search | Preferred with fallback |
+| Model | Thinking | Compliance first | Direct supplier | No feasible option | Open search | Preferred with fallback |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Base | None | 40% / 0.352 | 60% / 0.524 | 0% / -0.050 | 70% / 0.799 | 0% / 0.000 |
-| LoRA SFT | None | 50% / 0.630 | 60% / 0.524 | 20% / 0.180 | 70% / 0.697 | 0% / 0.226 |
+| Base | Disabled | 38.75% ± 1.25 pp / 0.492 ± 0.023 | 21.67% ± 0.72 pp / 0.259 ± 0.012 | 0% ± 0 pp / -0.059 ± 0.003 | 20.42% ± 1.44 pp / 0.441 ± 0.012 | 2.08% ± 0.72 pp / 0.016 ± 0.006 |
+| Base | Enabled | 44.17% ± 3.15 pp / 0.689 ± 0.058 | 68.75% ± 4.51 pp / 0.645 ± 0.035 | 13.33% ± 0.72 pp / 0.133 ± 0.007 | 45.42% ± 0.72 pp / 0.504 ± 0.013 | 30.00% ± 3.31 pp / 0.411 ± 0.010 |
+| SFT | Disabled | 52.50% ± 0 pp / 0.900 ± 0.001 | 63.13% ± 0.88 pp / 0.618 ± 0.000 | 42.50% ± 0 pp / 0.413 ± 0.004 | 51.88% ± 0.88 pp / 0.669 ± 0.014 | 2.50% ± 1.77 pp / 0.236 ± 0.006 |
 
-The SFT checkpoint improves overall success by 6 percentage points and average
-return by 0.127. Its positive return on preferred-supplier fallback tasks,
-despite no complete successes, reflects intermediate rewards for useful actions.
+Against the non-thinking base, the 48-step SFT checkpoint improves mean task
+success by **25.92 percentage points** and mean return by **0.338**. It also slightly
+exceeds the thinking-enabled base on both metrics while using **about one fifth
+of its mean episode latency**. **Preferred-supplier fallback remains the clearest
+weakness: intermediate return improves, but complete task success remains low.**
 
-| Model | Reasoning | Input tokens | Output tokens | Total tokens |
+| Model | Thinking | Input tokens | Output tokens | Total tokens |
 | --- | --- | ---: | ---: | ---: |
-| Base | None | 487,802 | 13,934 | 501,736 |
-| LoRA SFT | None | 753,206 | 17,410 | 770,616 |
+| Base | Disabled | 6,596,107 ± 46,966 | 161,637 ± 937 | 6,757,744 ± 47,084 |
+| Base | Enabled | 8,027,538 ± 366,261 | 993,700 ± 18,121 | 9,021,238 ± 384,314 |
+| SFT | Disabled | 7,799,470 ± 88,576 | 168,208 ± 1,032 | 7,967,677 ± 89,607 |
 
-The SFT model generated longer multi-turn trajectories (7.86 versus 6.86 steps
-per episode). Because every step resends the growing conversation and tool
-history, these additional steps increase both cumulative input tokens and total
-evaluation latency.
+Thinking increases output tokens substantially and raises mean latency by
+**more than six times** over the non-thinking base. The SFT model completes more useful
+tool trajectories without that reasoning-token overhead, although its longer
+interactions still use more context than the non-thinking base.
+
+These estimates remain preliminary. Each configuration has **three runs**, and the
+standard deviations describe observed run-to-run inference variability; they
+are not confidence intervals.
 
 ## Environment description
 
