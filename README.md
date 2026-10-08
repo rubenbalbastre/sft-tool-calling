@@ -15,6 +15,10 @@ procurement: a model must decide which information it needs, call the
 appropriate functions, use returned values in later calls, and finish with a
 valid purchasing decision.
 
+**Why this matters:** the experiment tests whether a short LoRA fine-tuning run
+can teach a small model to complete tool workflows without paying the latency
+cost of explicit reasoning.
+
 The purpose of fine-tuning is not to teach one fixed workflow. It is to improve
 the model's ability to select different tool routes from the user's constraints,
 preserve arguments across turns, recover from tool errors, and make a grounded
@@ -70,6 +74,8 @@ examples**. Of these, **188,297 assistant tool-call tokens** carried loss; conte
 tokens were masked from the loss. The 48-step SFT job took **65 minutes on one
 NVIDIA A40 GPU**.
 
+![Training and validation loss across optimizer steps](docs/assets/figures/sft-training-loss.svg)
+
 Task-level cells report `mean success ± SD / mean return ± SD`.
 
 | Model | Thinking | Compliance first | Direct supplier | No feasible option | Open search | Preferred with fallback |
@@ -107,10 +113,32 @@ options, submit a procurement plan, or report that no feasible option exists.
 Tasks vary between direct supplier requests, open searches, compliance-first
 decisions, preferred-supplier fallback, and infeasible cases.
 
-One typical successful trajectory is:
+One representative successful trajectory is shown below. Tool results are
+abbreviated, but identifiers passed between calls are preserved.
 
 ```text
-user request → search suppliers → request quote → delivery options → submitted plan
+User: Find 600 kg of MAT-1042 for Zaragoza before 2027-04-04.
+
+Assistant → search_suppliers(
+  material_id="MAT-1042", countries=["ES", "FR"]
+)
+Tool      → suppliers=[{"supplier_id": "SUP-001"}, ...]
+
+Assistant → request_quote(
+  supplier_id="SUP-001", material_id="MAT-1042", quantity=600,
+  unit="kg", required_date="2027-04-04"
+)
+Tool      → quote_id="QUOTE-001", material_cost=..., ready_date=...
+
+Assistant → get_delivery_options(
+  quote_id="QUOTE-001", destination="Zaragoza"
+)
+Tool      → delivery_options=[{"delivery_option_id": "DELIVERY-001", ...}]
+
+Assistant → submit_procurement_plan(
+  quote_id="QUOTE-001", delivery_option_id="DELIVERY-001"
+)
+Tool      → success=true, feasible=true
 ```
 
 Unlike a static function-calling benchmark, correctness is determined by
@@ -179,6 +207,23 @@ Hydra entry points accept command-line overrides, for example:
 python generate_data.py splits.sft_train=40 splits.test=20
 python -m src.evaluation.evaluate_local backend=vllm episodes=100
 ```
+
+## Limitations
+
+- The reported comparison covers **one base-model family and one 48-step SFT
+  training run**; it does not establish that the same gains transfer to other
+  architectures or training seeds.
+- The procurement data and tool observations are synthetic. They test grounded
+  tool use under controlled constraints, not integration with a live purchasing
+  system.
+- Each evaluation configuration has three repeated inference runs. The reported
+  standard deviations capture observed run-to-run variation but are not
+  confidence intervals.
+- Preferred-supplier fallback remains difficult: the SFT model often makes
+  useful intermediate calls without completing a valid final plan.
+- The model can still emit invalid calls or select infeasible options. The
+  environment verifier is required; outputs should not be treated as autonomous
+  purchasing decisions.
 
 ## Documentation
 
