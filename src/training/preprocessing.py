@@ -98,8 +98,3 @@ def prepare_sft_dataset(
         lambda example: any(label != -100 for label in example["labels"]),
         desc="Dropping fully masked examples",
     )
-
-
-def prepare_opd_source(dataset):
-    """Expose prompt-only messages under the column required by TRL OPD."""
-    return dataset.select_columns(["messages"]).rename_column("messages", "prompt")

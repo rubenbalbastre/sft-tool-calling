@@ -11,8 +11,6 @@ prompt_generation:
 splits:
   sft_train: 100
   sft_validation: 10
-  opd_train: 100
-  opd_validation: 10
   test: 10
 
 hub:

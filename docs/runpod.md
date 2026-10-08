@@ -1,6 +1,6 @@
 # RunPod experiment environment
 
-The project's data generation, SFT, OPD, and local-model evaluation workflows
+The project's data generation, SFT, and local-model evaluation workflows
 were developed and run with this configuration:
 
 | Component | Configuration |
