@@ -1,5 +1,9 @@
 # Multilingual procurement tool calling
 
+[![Hugging Face model](https://img.shields.io/badge/%F0%9F%A4%97-Model-FFD21E)](https://huggingface.co/rubenbalbastre/procurement-function-calling-gemma-4-E2B-it-sft)
+[![Hugging Face dataset](https://img.shields.io/badge/%F0%9F%A4%97-Dataset-FFD21E)](https://huggingface.co/datasets/rubenbalbastre/supply-chain-tool-calling)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://docs.python.org/3.12/)
+
 Published models and experiment artifacts are collected on
 [Hugging Face](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
 
@@ -21,6 +25,8 @@ The same verifiable environment generates successful supervised trajectories
 and evaluates unseen model rollouts. This keeps data creation lightweight while
 ensuring that every training trace has been executed and checked against the
 task constraints.
+
+![Procurement tool-calling environment](docs/assets/environment-overview.svg)
 
 The project connects the complete experimentation loop:
 
@@ -53,6 +59,11 @@ deviation across runs.
 | Base | Disabled | 3 | 16.58% ± 0.29 pp | 0.230 ± 0.010 | 15.75 ± 0.14 s |
 | Base | Enabled | 3 | 40.33% ± 1.66 pp | 0.476 ± 0.017 | 95.36 ± 2.04 s |
 | SFT | Disabled | 3 | **42.50% ± 0.35 pp** | **0.567 ± 0.005** | **20.31 ± 0.19 s** |
+
+> [!IMPORTANT]
+> LoRA SFT increased non-thinking success from **16.58% to 42.50%** and
+> average return from **0.230 to 0.567**, with **20.31 s** mean latency versus
+> **95.36 s** for thinking-enabled inference.
 
 Training processed **1,472,140 non-padding input tokens** across **384
 examples**. Of these, **188,297 assistant tool-call tokens** carried loss; context and tool-result
@@ -96,6 +107,12 @@ options, submit a procurement plan, or report that no feasible option exists.
 Tasks vary between direct supplier requests, open searches, compliance-first
 decisions, preferred-supplier fallback, and infeasible cases.
 
+One typical successful trajectory is:
+
+```text
+user request → search suppliers → request quote → delivery options → submitted plan
+```
+
 Unlike a static function-calling benchmark, correctness is determined by
 executing the model's actions. The verifier checks observed evidence,
 constraint satisfaction, and decision quality instead of requiring one exact
@@ -107,8 +124,6 @@ deterministically from a seed. This makes experiments reproducible while still
 requiring the model to discover the state through tool calls. The interface
 follows the familiar Gymnasium `reset`/`step` shape and uses structured tool-call
 dictionaries as actions.
-
-![Procurement tool-calling environment](docs/assets/environment-overview.svg)
 
 ## Techniques used
 
