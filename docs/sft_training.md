@@ -139,6 +139,21 @@ Patience counts evaluation calls. Checkpoint saving and evaluation are both
 configured every four steps so the best checkpoint can be restored before the
 final adapter is saved.
 
+## Resume from a checkpoint
+
+Set `train.model_name` to a local `checkpoint-*` directory:
+
+```yaml
+train:
+  model_name: outputs/my-run/checkpoints/checkpoint-24
+```
+
+The script detects `trainer_state.json`, loads the LoRA adapter as trainable,
+and restores the optimizer, scheduler, random state, and completed step count.
+`train.max_steps` remains the total target step count, not the number of extra
+steps. A local adapter or final model without `trainer_state.json` starts a new
+training run from those weights instead.
+
 ## Outputs and experiment tracking
 
 Each run writes to `outputs/<run-name>/`:
