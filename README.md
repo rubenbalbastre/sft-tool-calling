@@ -74,7 +74,8 @@ deviation across runs.
 Training processed **1,472,140 non-padding input tokens** across **384
 examples**. Of these, **188,297 assistant tool-call tokens** carried loss; context and tool-result
 tokens were masked from the loss. The 48-step SFT job took **65 minutes on one
-NVIDIA A40 GPU**.
+NVIDIA A40 GPU** and cost **less than €1 on RunPod**. Running the reported
+evaluation suite cost **approximately €2**.
 
 ![Training and validation loss across optimizer steps](docs/assets/figures/sft-training-loss.svg)
 
