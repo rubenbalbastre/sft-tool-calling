@@ -12,10 +12,3 @@ splits:
   sft_train: 100
   sft_validation: 10
   test: 10
-
-hub:
-  push: false
-  repo_id: rubenbalbastre/supply-chain-tool-calling
-  config_name: "default"
-  private: false
-  token_env: "HF_TOKEN"

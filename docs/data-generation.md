@@ -80,14 +80,8 @@ example = dataset["sft_train"][0]
 
 ## Publish to the Hugging Face Hub
 
-Set `HF_TOKEN` in the shell or the repository's ignored `.env`, then run:
-
-```bash
-python generate_data.py hub.push=true
-```
-
-To publish a dataset that is already saved locally without regenerating it,
-use:
+Set `HF_TOKEN` in the shell or the repository's ignored `.env`, then publish an
+existing locally saved dataset without regenerating it:
 
 ```bash
 python scripts/publish-dataset.py
@@ -107,8 +101,8 @@ dataset card. It uploads only the current `sft_train`, `sft_validation`, and
 
 By default, this updates
 [`rubenbalbastre/supply-chain-tool-calling`](https://huggingface.co/datasets/rubenbalbastre/supply-chain-tool-calling)
-under the `default` configuration. Override `hub.repo_id` and
-`hub.config_name` to publish elsewhere.
+under the `default` configuration. Pass a repository ID as the second
+positional argument to publish elsewhere.
 
 Load the named configuration with:
 
