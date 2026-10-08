@@ -6,7 +6,7 @@ dataset:
   file: "data/pipeline/hf_dataset/"
   split: "test"
 
-episodes: 50 # Evaluate the complete split.
+episodes: null # Evaluate the complete split.
 seed: 1234 # Dataset selection, model generation, and vLLM server seed.
 max_steps: 20
 max_new_tokens: 2048

@@ -10,7 +10,7 @@ if [[ ! -x .venv/bin/python ]]; then
 fi
 
 PYTHON="$REPOSITORY_ROOT/.venv/bin/python"
-BASE_MODEL="google/gemma-4-E2B-it" # "HuggingFaceTB/SmolLM2-135M-Instruct" #"google/gemma-4-E2B-it"
+BASE_MODEL="google/gemma-4-E2B-it"
 SFT_RUN="${BASE_MODEL}-sft"
 SFT_MODEL="$REPOSITORY_ROOT/outputs/$SFT_RUN/final_model"
 
@@ -19,18 +19,8 @@ HF_HUB_CACHE="$HF_HOME/hub"
 
 source .venv/bin/activate
 
-# echo "Generating data..."
-# "$PYTHON" generate_data.py
-
-# echo "Evaluating base model..."
-# "$PYTHON" -m src.evaluation.evaluate_openai \
-#   --model gpt-5.6-luna \
-#   --episodes 5 \
-#   --seed 1234
-
-echo "Evaluating base model..."
-"$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL"
+echo "Generating data..."
+"$PYTHON" generate_data.py
 
 echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
@@ -40,17 +30,12 @@ echo "Evaluating base model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
     model="$BASE_MODEL" enable_thinking=true
 
-echo "Evaluating base model..."
+echo "Training SFT model..."
+"$PYTHON" train_sft.py \
+    train.model_name="$BASE_MODEL" \
+    train.run_name="$SFT_RUN" \
+    train.final_model.output_dir=outputs
+
+echo "Evaluating SFT model..."
 "$PYTHON" -m src.evaluation.evaluate_local \
-    model="$BASE_MODEL" enable_thinking=true
-
-
-# echo "Training SFT model..."
-# "$PYTHON" train_sft.py \
-#     train.model_name="$BASE_MODEL" \
-#     train.run_name="$SFT_RUN" \
-#     train.final_model.output_dir=outputs
-
-# echo "Evaluating SFT model..."
-# "$PYTHON" -m src.evaluation.evaluate_local \
-#     model="$SFT_MODEL"
+    model="$SFT_MODEL"
