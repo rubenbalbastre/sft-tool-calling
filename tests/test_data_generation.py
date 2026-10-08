@@ -22,8 +22,6 @@ class DataGenerationTest(unittest.TestCase):
         sizes = {
             "sft_train": 5,
             "sft_validation": 1,
-            "opd_train": 5,
-            "opd_validation": 1,
             "test": 1,
         }
         dataset = build_pipeline_dataset(
@@ -38,16 +36,12 @@ class DataGenerationTest(unittest.TestCase):
             {
                 "sft_train": 5 * 20,
                 "sft_validation": 1 * 10,
-                "opd_train": 5 * 20,
-                "opd_validation": 1 * 10,
                 "test": 1 * 20,
             },
         )
         self.assertGreater(len(dataset["sft_train"][0]["messages"]), 1)
-        self.assertEqual(len(dataset["opd_train"][0]["messages"]), 1)
         self.assertEqual(len(dataset["test"][0]["messages"]), 1)
         self.assertEqual(dataset["sft_train"][0]["stage"], "sft")
-        self.assertEqual(dataset["opd_train"][0]["stage"], "opd")
         self.assertEqual(dataset["test"][0]["stage"], "evaluation")
         self.assertIn("material_id", json.loads(dataset["test"][0]["scenario_json"]))
         tool_names = {
@@ -87,15 +81,7 @@ class DataGenerationTest(unittest.TestCase):
             {str(index) for index in range(1, 11)},
         )
         self.assertEqual(
-            {variant.rsplit("_", 1)[1] for variant in dataset["opd_train"]["prompt_variant"]},
-            {str(index) for index in range(1, 11)},
-        )
-        self.assertEqual(
             {variant.rsplit("_", 1)[1] for variant in dataset["sft_validation"]["prompt_variant"]},
-            {str(index) for index in range(11, 16)},
-        )
-        self.assertEqual(
-            {variant.rsplit("_", 1)[1] for variant in dataset["opd_validation"]["prompt_variant"]},
             {str(index) for index in range(11, 16)},
         )
         self.assertEqual(

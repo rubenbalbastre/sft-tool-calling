@@ -175,7 +175,7 @@ def _normalise_messages(messages):
 
 
 def to_pipeline_row(row, stage):
-    """Create an SFT conversation or prompt-only online-training example."""
+    """Create an SFT conversation or prompt-only evaluation example."""
     scenario = row["scenario"]
     full_messages = row["messages"]
     messages = full_messages if stage == "sft" else full_messages[:1]
@@ -202,14 +202,12 @@ def build_pipeline_dataset(
     languages=LANGUAGES,
     template_splits=None,
 ):
-    """Build split-safe prompt variants for SFT, online training, and evaluation."""
+    """Build split-safe prompt variants for SFT and evaluation."""
     from datasets import Dataset, DatasetDict, Features, List, Value
 
     expected_splits = (
         "sft_train",
         "sft_validation",
-        "opd_train",
-        "opd_validation",
         "test",
     )
     unknown = set(split_sizes) - set(expected_splits)
@@ -247,9 +245,7 @@ def build_pipeline_dataset(
 
     datasets = {}
     for offset, split in enumerate(expected_splits, start=1):
-        stage = "sft" if split.startswith("sft_") else (
-            "opd" if split.startswith("opd_") else "evaluation"
-        )
+        stage = "sft" if split.startswith("sft_") else "evaluation"
         template_group = (
             "train" if split.endswith("_train") else
             "validation" if split.endswith("_validation") else

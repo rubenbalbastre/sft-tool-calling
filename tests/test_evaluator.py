@@ -119,8 +119,6 @@ class EvaluatorTest(unittest.TestCase):
         sizes = {
             "sft_train": 1,
             "sft_validation": 1,
-            "opd_train": 1,
-            "opd_validation": 1,
             "test": 3,
         }
         dataset = build_pipeline_dataset(
@@ -152,8 +150,6 @@ class EvaluatorTest(unittest.TestCase):
         sizes = {
             "sft_train": 1,
             "sft_validation": 1,
-            "opd_train": 1,
-            "opd_validation": 1,
             "test": 3,
         }
         dataset = build_pipeline_dataset(

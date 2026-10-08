@@ -2,19 +2,19 @@
 
 > [!NOTE]
 > **Work in progress.** The executable environment, multilingual dataset
-> pipeline, SFT workflow, and model evaluation are functional. On-policy
-> distillation and larger-scale experiments are still under active development.
+> pipeline, SFT workflow, and model evaluation are functional. Larger-scale
+> experiments are still under active development.
 
 Published models and experiment artifacts are collected on
 [Hugging Face](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
 
 ## Project description
 
-This project explores how supervised fine-tuning and on-policy distillation can
-improve a small language model's ability to use tools reliably. The target task
-is stateful, multi-turn procurement: a model must decide which information it
-needs, call the appropriate functions, use returned values in later calls, and
-finish with a valid purchasing decision.
+This project explores how supervised fine-tuning can improve a small language
+model's ability to use tools reliably. The target task is stateful, multi-turn
+procurement: a model must decide which information it needs, call the
+appropriate functions, use returned values in later calls, and finish with a
+valid purchasing decision.
 
 The purpose of fine-tuning is not to teach one fixed workflow. It is to improve
 the model's ability to select different tool routes from the user's constraints,
@@ -22,11 +22,16 @@ preserve arguments across turns, recover from tool errors, and make a grounded
 decision from the evidence it has collected. Task success is measured by the
 executable environment alongside token-level validation loss.
 
+The same verifiable environment generates successful supervised trajectories
+and evaluates unseen model rollouts. This keeps data creation lightweight while
+ensuring that every training trace has been executed and checked against the
+task constraints.
+
 The project connects the complete experimentation loop:
 
 ```text
-seeded scenarios → multilingual trajectories → LoRA SFT / OPD
-       ↓                                         ↓
+seeded scenarios → verified multilingual trajectories → LoRA SFT
+       ↓                                               ↓
 SQLite environment ← tool calls ← model evaluation and verification
 ```
 
@@ -116,7 +121,7 @@ dictionaries as actions.
   reference trajectories, and multiple prompt templates in English, Spanish,
   German, and French.
 - **Post-training:** assistant-only supervised loss, LoRA adapters through PEFT,
-  early stopping, and an experimental TRL on-policy distillation stage.
+  and early stopping.
 - **Evaluation:** closed-loop environment rollouts with task success, return,
   full traces, token usage, and latency—not only validation loss.
 - **Inference:** local evaluation with Transformers or vLLM and remote evaluation
@@ -153,16 +158,15 @@ dependencies first.
 
 | Entry point | Configuration | Purpose |
 | --- | --- | --- |
-| `generate_data.py` | `config/data_generation.yaml` | Create the procurement SFT, OPD, and test dataset |
+| `generate_data.py` | `config/data_generation.yaml` | Create the procurement SFT and test dataset |
 | `train_sft.py` | `config/train_sft.yaml` | Supervised fine-tuning |
-| `train_opd.py` | `config/train_opd.yaml` | On-policy distillation |
 | `python -m src.evaluation.evaluate_local` | `config/eval.yaml` | Evaluate with Transformers or an automatically managed vLLM server |
 | `python -m src.evaluation.evaluate_openai` | CLI arguments | Evaluate an OpenAI model |
 
 Hydra entry points accept command-line overrides, for example:
 
 ```bash
-python generate_data.py splits.sft_train=40 splits.opd_train=40
+python generate_data.py splits.sft_train=40 splits.test=20
 python -m src.evaluation.evaluate_local backend=vllm episodes=100
 ```
 
@@ -171,7 +175,6 @@ python -m src.evaluation.evaluate_local backend=vllm episodes=100
 - [Environment and verifiable trajectories](docs/environment.md)
 - [Dataset generation and Hugging Face publishing](docs/data-generation.md)
 - [Supervised fine-tuning](docs/sft_training.md)
-- [On-policy distillation](docs/opd_training.md)
 - [Local and OpenAI evaluation](docs/evaluation.md)
 - [RunPod experiment environment](docs/runpod.md)
 
