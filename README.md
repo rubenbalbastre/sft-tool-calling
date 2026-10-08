@@ -1,10 +1,5 @@
 # Multilingual procurement tool calling
 
-> [!NOTE]
-> **Work in progress.** The executable environment, multilingual dataset
-> pipeline, SFT workflow, and model evaluation are functional. Larger-scale
-> experiments are still under active development.
-
 Published models and experiment artifacts are collected on
 [Hugging Face](https://huggingface.co/collections/rubenbalbastre/2b-tool-calling-using-sft).
 
