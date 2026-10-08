@@ -69,6 +69,8 @@ deviation across runs.
 > average return from **0.230 to 0.567**, with **20.31 s** mean latency versus
 > **95.36 s** for thinking-enabled inference.
 
+![Task success, average return, and latency comparison](docs/assets/figures/evaluation-summary.svg)
+
 Training processed **1,472,140 non-padding input tokens** across **384
 examples**. Of these, **188,297 assistant tool-call tokens** carried loss; context and tool-result
 tokens were masked from the loss. The 48-step SFT job took **65 minutes on one
