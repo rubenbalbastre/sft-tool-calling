@@ -14,9 +14,8 @@ dataset:
 episodes: null
 ```
 
-With the default generated dataset, this evaluates 50 scenarios across 8
-held-out multilingual prompt variants, for 400 episodes. This is substantially
-more expensive than evaluating all 50 scenarios with one fixed prompt variant.
+With the default generated dataset, this evaluates 10 scenarios across 40
+held-out multilingual prompt variants, for 400 episodes.
 
 Both evaluators run fresh seeded procurement scenarios through the same
 environment. Results are written to numbered directories:
@@ -93,9 +92,9 @@ concurrently up to `concurrency`; turns remain ordered within each episode. An
 episode's latency timer starts only after it enters this pool, so waiting behind
 earlier episodes is excluded while its model calls and tool loop are included.
 With `batch_invariant=true`, the launcher sets `VLLM_BATCH_INVARIANT=1` for the
-server. This keeps outputs independent of dynamic batch composition, so
-reproducible evaluations can still use concurrent episodes. The feature may
-reduce throughput and requires support from the installed vLLM version and
+server. This reduces variation caused by dynamic batch composition, but it does
+not guarantee identical outputs across repeated GPU inference runs. The feature
+may reduce throughput and requires support from the installed vLLM version and
 model implementation.
 When the selected local path contains `adapter_config.json`, the evaluator
 serves its recorded base model and mounts the directory as a native vLLM LoRA

@@ -12,6 +12,13 @@ from src.environment.procurement import (
 )
 
 
+DEFAULT_TEMPLATE_SPLITS = {
+    "train": range(1, 11),
+    "validation": range(11, 16),
+    "test": range(16, 26),
+}
+
+
 def _tool_call(call_id, action):
     return {
         "id": call_id,
@@ -217,6 +224,9 @@ def build_pipeline_dataset(
             f"split_sizes must contain exactly {expected_splits}; "
             f"missing={sorted(missing)}, unknown={sorted(unknown)}"
         )
+
+    if template_splits is None:
+        template_splits = DEFAULT_TEMPLATE_SPLITS
 
     features = Features({
         "messages": List({
