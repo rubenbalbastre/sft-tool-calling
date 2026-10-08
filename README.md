@@ -179,7 +179,19 @@ dataset.
 
 ## Quick start
 
-Run commands from the repository root with the project environment activated.
+The repository includes two scripts prepared for straightforward reproduction:
+
+```bash
+./scripts/create-env.sh
+./scripts/run-experiments.sh
+```
+
+`create-env.sh` creates `.venv` and installs the declared dependencies.
+`run-experiments.sh` then reproduces the main pipeline: dataset generation,
+base-model evaluation with thinking disabled and enabled, LoRA SFT, and final
+model evaluation. Run both scripts from the repository root.
+
+Individual stages can also be executed with the project environment activated:
 
 ```bash
 python generate_data.py
@@ -191,9 +203,6 @@ Run the tests:
 ```bash
 python -m unittest discover -s tests -v
 ```
-
-Use `./scripts/create-env.sh` to create `.venv` and install the declared
-dependencies first.
 
 ## Entry points
 
