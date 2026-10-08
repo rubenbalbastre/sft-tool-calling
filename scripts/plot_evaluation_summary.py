@@ -134,7 +134,7 @@ def main() -> None:
     )
 
     figure.suptitle(
-        "LoRA SFT recovers thinking-level quality without the latency cost",
+        "LoRA SFT recovers thinking-level task performance without the latency cost",
         x=0.06,
         y=0.97,
         ha="left",
